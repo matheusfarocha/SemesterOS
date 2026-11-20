@@ -10,6 +10,7 @@ export function weekLoad(assessments, weekStart) {
   const end = addDays(weekStart, 7)
   const score = assessments
     .filter((a) => {
+      if (!a.date) return false
       const d = parseISO(a.date)
       return d >= weekStart && d < end
     })
@@ -22,7 +23,7 @@ export function generateReminders({ courses, assessments }) {
   const out = []
   const courseOf = Object.fromEntries(courses.map((c) => [c.id, c]))
   const upcoming = assessments
-    .filter((a) => a.score == null)
+    .filter((a) => a.date && a.score == null)
     .map((a) => ({ ...a, d: parseISO(a.date), days: daysBetween(TODAY, parseISO(a.date)) }))
     .filter((a) => a.days >= 0)
     .sort((x, y) => x.d - y.d)
@@ -75,8 +76,8 @@ export function generateReminders({ courses, assessments }) {
       out.push({ id: `rk-${c.id}`, kind: 'risk', severity: c.target - g.projected > 5 ? 'high' : 'med', title: `${c.short} trending ${g.projected.toFixed(1)}%`, sub: `Below your ${c.target}% goal`, date: null })
     }
     const at = c.attendance
-    if (at && at.absences >= at.maxAbsences) {
-      out.push({ id: `ab-${c.id}`, kind: 'risk', severity: 'high', title: `${c.short}: at absence limit`, sub: `${at.absences}/${at.maxAbsences} used · next costs ${at.penalty}%`, date: null })
+    if (at?.maxAbsences != null && at.absences >= at.maxAbsences) {
+      out.push({ id: `ab-${c.id}`, kind: 'risk', severity: 'high', title: `${c.short}: at absence limit`, sub: `${at.absences}/${at.maxAbsences} used${at.penalty != null ? ` · next costs ${at.penalty}%` : ''}`, date: null })
     }
   }
 

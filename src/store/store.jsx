@@ -1,5 +1,6 @@
-import { createContext, useContext, useEffect, useReducer } from 'react'
+import { createContext, useContext, useEffect, useReducer, useState } from 'react'
 import { seed, seedSyllabi } from '@/store/seed'
+import { loadConfirmedSyllabi, toStoreRows } from '@/features/syllabus/syllabus.service'
 
 const KEY = 'semesteros:v1'
 const initial = () => ({ ...structuredClone(seed), syllabi: { ...seedSyllabi } })
@@ -24,16 +25,32 @@ function reducer(state, action) {
       return { ...state, assessments: state.assessments.map((a) => (a.id === action.id ? { ...a, score: action.score } : a)) }
     case 'updateCourse':
       return { ...state, courses: state.courses.map((c) => (c.id === action.id ? { ...c, ...action.patch } : c)) }
-    case 'addCourse':
+    case 'syncSyllabi': {
+      const rows = action.rows.filter(({ course }) => !state.hiddenCourseIds?.includes(course.id))
+      const courseIds = new Set(rows.map(({ course }) => course.id))
+      const previousCourses = new Map(state.courses.map((course) => [course.id, course]))
+      const previousScores = new Map(state.assessments.map((event) => [event.id, event.score]))
       return {
         ...state,
-        courses: [...state.courses, action.course],
-        assessments: [...state.assessments, ...action.assessments],
-        syllabi: { ...state.syllabi, [action.course.id]: action.syllabus },
+        courses: [
+          ...state.courses.filter((course) => !courseIds.has(course.id)),
+          ...rows.map(({ course }) => ({
+            ...course,
+            attendance: { ...course.attendance, absences: previousCourses.get(course.id)?.attendance.absences ?? 0 },
+          })),
+        ],
+        assessments: [
+          ...state.assessments.filter((event) => !courseIds.has(event.courseId)),
+          ...rows.flatMap(({ assessments }) => assessments.map((event) => ({
+            ...event, score: previousScores.get(event.id) ?? null,
+          }))),
+        ],
       }
+    }
     case 'removeCourse':
       return {
         ...state,
+        hiddenCourseIds: [...(state.hiddenCourseIds ?? []), action.id],
         courses: state.courses.filter((c) => c.id !== action.id),
         assessments: state.assessments.filter((a) => a.courseId !== action.id),
         tasks: state.tasks.filter((t) => t.courseId !== action.id),
@@ -51,12 +68,30 @@ const Ctx = createContext(null)
 
 export function StoreProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, undefined, load)
+  const [syncError, setSyncError] = useState('')
+  const [syncAttempt, setSyncAttempt] = useState(0)
+  useEffect(() => {
+    const controller = new AbortController()
+    loadConfirmedSyllabi(controller.signal)
+      .then((rows) => {
+        dispatch({ type: 'syncSyllabi', rows: rows.map(toStoreRows) })
+        setSyncError('')
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) setSyncError(error.message)
+      })
+    return () => controller.abort()
+  }, [syncAttempt])
   useEffect(() => {
     try {
       localStorage.setItem(KEY, JSON.stringify(state))
     } catch {}
   }, [state])
-  return <Ctx.Provider value={{ state, dispatch }}>{children}</Ctx.Provider>
+  return (
+    <Ctx.Provider value={{ state, dispatch, syncError, refreshSyllabi: () => setSyncAttempt((attempt) => attempt + 1) }}>
+      {children}
+    </Ctx.Provider>
+  )
 }
 
 export const useStore = () => useContext(Ctx)

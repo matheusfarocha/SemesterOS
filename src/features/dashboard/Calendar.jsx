@@ -16,7 +16,9 @@ export default function Calendar() {
 
   const byDate = useMemo(() => {
     const m = {}
-    for (const a of state.assessments) (m[a.date] ??= []).push(a)
+    for (const a of state.assessments) {
+      if (a.date) (m[a.date] ??= []).push(a)
+    }
     return m
   }, [state.assessments])
 
@@ -28,7 +30,11 @@ export default function Calendar() {
   }
 
   const title = view === 'Week' ? `Week of ${fmtShort(weekCursor).slice(5)}` : `${MONTHS[cursor.getMonth()]} ${cursor.getFullYear()}`
-  const monthOptions = Array.from({ length: 6 }, (_, i) => new Date(2026, 7 + i, 1))
+  const monthOptions = [...new Set([
+    iso(cursor),
+    ...Array.from({ length: 6 }, (_, i) => iso(new Date(2026, 7 + i, 1))),
+    ...Object.keys(byDate).map((date) => `${date.slice(0, 7)}-01`),
+  ])].sort()
 
   return (
     <section className="card calendar">
@@ -50,9 +56,9 @@ export default function Calendar() {
                   onChange={(e) => setCursor(parseISO(e.target.value))}
                   aria-label="Jump to month"
                 >
-                  {monthOptions.map((d) => (
-                    <option key={iso(d)} value={iso(d)}>
-                      {MONTHS[d.getMonth()]} {d.getFullYear()}
+                  {monthOptions.map((date) => (
+                    <option key={date} value={date}>
+                      {MONTHS[parseISO(date).getMonth()]} {date.slice(0, 4)}
                     </option>
                   ))}
                 </select>
@@ -166,8 +172,9 @@ function WeekView({ start, byDate, tasks, onOpen }) {
 
 function AgendaView({ assessments, courseOf, onOpen }) {
   const items = assessments
-    .filter((a) => a.score == null && daysBetween(TODAY, parseISO(a.date)) >= 0)
+    .filter((a) => a.date && a.score == null && daysBetween(TODAY, parseISO(a.date)) >= 0)
     .sort((a, b) => a.date.localeCompare(b.date))
+  const undated = assessments.filter((a) => !a.date)
   return (
     <div className="agenda">
       {items.map((a) => {
@@ -195,6 +202,14 @@ function AgendaView({ assessments, courseOf, onOpen }) {
         )
       })}
       {!items.length && <p className="muted pad">Nothing upcoming.</p>}
+      {undated.length > 0 && <h4 className="pad">Events without an exact date</h4>}
+      {undated.map((a) => (
+        <button key={a.id} className="agenda-row" onClick={() => onOpen(a)}>
+          <TypeIcon type={a.type} />
+          <span className="agenda-main"><strong>{a.title}</strong><span>{courseOf(a.courseId)?.code}</span></span>
+          <span className="muted">{a.dateText ?? 'Date unknown'}</span>
+        </button>
+      ))}
     </div>
   )
 }
@@ -216,25 +231,26 @@ function EventModal({ item, course, onClose }) {
           {course?.code} · {course?.name}
         </dd>
         <dt>Date</dt>
-        <dd>{fmtShort(parseISO(item.date))}</dd>
+        <dd>{item.date ? fmtShort(parseISO(item.date)) : item.dateText ?? 'Unknown'}</dd>
+        {(item.time || item.timeText) && <><dt>Time</dt><dd>{item.time ? item.time.slice(0, 5) : item.timeText}</dd></>}
         <dt>Type</dt>
-        <dd className="cap">{item.type}</dd>
+        <dd className="cap">{item.type?.replace('_', ' ') ?? 'Unknown'}</dd>
         <dt>Category</dt>
         <dd>
-          {cat?.name} ({cat?.weight}% of grade)
+          {cat?.name ?? item.categoryName ?? 'Uncategorized'} {cat?.weight != null && `(${cat.weight}% of grade)`}
         </dd>
       </dl>
-      <label className="field">
+      {item.points != null && <label className="field">
         <span>Score (out of {item.points})</span>
         <input type="number" min="0" value={score} placeholder="Not graded yet" onChange={(e) => setScore(e.target.value)} />
-      </label>
+      </label>}
       <div className="modal-actions">
         <button className="btn ghost" onClick={onClose}>
-          Cancel
+          {item.points == null ? 'Close' : 'Cancel'}
         </button>
-        <button className="btn primary" onClick={save}>
+        {item.points != null && <button className="btn primary" onClick={save}>
           Save score
-        </button>
+        </button>}
       </div>
     </Modal>
   )

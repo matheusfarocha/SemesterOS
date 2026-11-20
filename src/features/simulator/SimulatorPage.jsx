@@ -65,32 +65,36 @@ export default function SimulatorPage() {
         {state.courses.map((c) => {
           const r = result.perCourse[c.id]
           const b = baseline.perCourse[c.id]
-          const upcoming = state.assessments.filter((a) => a.courseId === c.id && a.score == null).sort((x, y) => x.date.localeCompare(y.date))
+          const upcoming = state.assessments
+            .filter((a) => a.courseId === c.id && a.score == null && a.categoryId && a.points > 0)
+            .sort((x, y) => (x.date ?? '9999').localeCompare(y.date ?? '9999'))
+          const hours = sc.hours[c.id] ?? recommendedHours(c)
+          const absences = sc.absences[c.id] ?? c.attendance.absences
           return (
             <section key={c.id} className="card sim-row" style={{ '--c': c.color }}>
               <div className="sim-name">
                 <i className="cdot" style={{ background: c.color }} />
                 <div>
                   <strong>{c.short}</strong>
-                  <span className="muted">{c.credits} cr</span>
+                  {c.credits != null && <span className="muted">{c.credits} cr</span>}
                 </div>
               </div>
 
               <label className="sim-ctrl">
                 <span>
-                  Study <b>{sc.hours[c.id]}h</b>/wk <span className="muted">(rec. {recommendedHours(c)})</span>
+                  Study <b>{hours}h</b>/wk <span className="muted">(rec. {recommendedHours(c)})</span>
                 </span>
-                <input type="range" min="0" max="20" value={sc.hours[c.id]} onChange={(e) => setH(c.id, Number(e.target.value))} />
+                <input type="range" min="0" max="20" value={hours} onChange={(e) => setH(c.id, Number(e.target.value))} />
               </label>
 
               <div className="sim-ctrl">
                 <span>
-                  Absences <span className="muted">(max {c.attendance.maxAbsences})</span>
+                  Absences {c.attendance.maxAbsences != null && <span className="muted">(max {c.attendance.maxAbsences})</span>}
                 </span>
                 <div className="stepper">
-                  <button className="icon-btn boxed" onClick={() => setA(c.id, sc.absences[c.id] - 1)}>−</button>
-                  <span className={sc.absences[c.id] > c.attendance.maxAbsences ? 'warn' : ''}>{sc.absences[c.id]}</span>
-                  <button className="icon-btn boxed" onClick={() => setA(c.id, sc.absences[c.id] + 1)}>+</button>
+                  <button className="icon-btn boxed" onClick={() => setA(c.id, absences - 1)}>−</button>
+                  <span className={c.attendance.maxAbsences != null && absences > c.attendance.maxAbsences ? 'warn' : ''}>{absences}</span>
+                  <button className="icon-btn boxed" onClick={() => setA(c.id, absences + 1)}>+</button>
                 </div>
               </div>
 
@@ -109,11 +113,11 @@ export default function SimulatorPage() {
                 <div className="bar">
                   <span className="bar-base" style={{ width: barPct(b.projected) }} />
                   <span className="bar-sim" style={{ width: barPct(r.projected) }} />
-                  <span className="bar-target" style={{ left: barPct(c.target) }} title={`Goal ${c.target}%`} />
+                  {c.target != null && <span className="bar-target" style={{ left: barPct(c.target) }} title={`Goal ${c.target}%`} />}
                 </div>
                 <div className="sim-grade">
-                  <strong>{r.projected.toFixed(1)}%</strong>
-                  <em>{r.letter}</em>
+                  <strong>{r.projected == null ? '—' : `${r.projected.toFixed(1)}%`}</strong>
+                  {!c.uploadId && <em>{r.letter}</em>}
                   {Math.abs(r.projected - b.projected) >= 0.05 && (
                     <small className={r.projected > b.projected ? 'ok' : 'warn'}>
                       {r.projected > b.projected ? '+' : ''}

@@ -12,7 +12,7 @@ export const gradePoints = (p) => (p == null ? 0 : SCALE.find(([min]) => p >= mi
 
 export function attendancePenalty(course, absences = course.attendance?.absences ?? 0) {
   const a = course.attendance
-  if (!a) return 0
+  if (a?.maxAbsences == null || a.penalty == null) return 0
   return Math.max(0, absences - a.maxAbsences) * a.penalty
 }
 
@@ -28,10 +28,11 @@ export function courseGrade(course, assessments, opts = {}) {
 
   const cats = course.categories.map((c) => {
     const inCat = items.filter((a) => a.categoryId === c.id)
-    const scored = inCat.filter((a) => a.score != null)
+    const pointItems = inCat.filter((a) => a.points > 0)
+    const scored = pointItems.filter((a) => a.score != null)
     const earned = scored.reduce((s, a) => s + a.score, 0)
     const scoredPts = scored.reduce((s, a) => s + a.points, 0)
-    const totalPts = inCat.reduce((s, a) => s + a.points, 0)
+    const totalPts = pointItems.reduce((s, a) => s + a.points, 0)
     return { ...c, items: inCat, earned, scoredPts, totalPts, avg: scoredPts ? (earned / scoredPts) * 100 : null }
   })
 
@@ -40,10 +41,11 @@ export function courseGrade(course, assessments, opts = {}) {
     return w ? list.reduce((s, c) => s + c.weight * c[key], 0) / w : null
   }
 
-  const current = weighted(cats.filter((c) => c.avg != null), 'avg')
+  const hasUnknownPoints = (cat) => cat.items.some((a) => a.points == null)
+  const current = weighted(cats.filter((c) => c.weight != null && c.avg != null), 'avg')
 
   for (const c of cats) {
-    if (!c.totalPts) continue
+    if (!c.totalPts || hasUnknownPoints(c)) continue
     let pts = c.earned
     for (const a of c.items) {
       if (a.score != null) continue
@@ -54,20 +56,20 @@ export function courseGrade(course, assessments, opts = {}) {
   }
 
   const penalty = attendancePenalty(course, opts.absences)
-  const raw = weighted(cats.filter((c) => c.totalPts), 'projected')
+  const raw = weighted(cats.filter((c) => c.weight != null && c.projected != null), 'projected')
   const projected = raw == null ? null : Math.max(0, raw - penalty)
-  const remaining = items.filter((a) => a.score == null)
+  const remaining = cats.filter((c) => c.weight > 0 && c.projected != null)
+    .flatMap((c) => c.items.filter((a) => a.score == null))
 
   return { current, projected, penalty, categories: cats, remaining }
 }
 
 /** Uniform % needed on every remaining item to land on `target`. null = nothing left to grade. */
 export function requiredScore(course, assessments, target, opts = {}) {
-  const left = assessments.filter((a) => a.courseId === course.id && a.score == null)
-  if (!left.length) return null
+  if (target == null) return null
   const lo = courseGrade(course, assessments, { ...opts, fill: 0, hypo: {} }).projected
   const hi = courseGrade(course, assessments, { ...opts, fill: 100, hypo: {} }).projected
-  if (hi === lo) return null
+  if (lo == null || hi == null || hi === lo) return null
   return ((target - lo) / (hi - lo)) * 100
 }
 
@@ -76,7 +78,7 @@ export function semesterGPA(courses, gradeById) {
   let cr = 0
   for (const c of courses) {
     const g = gradeById[c.id]
-    if (g == null) continue
+    if (g == null || c.credits == null) continue
     pts += gradePoints(g) * c.credits
     cr += c.credits
   }

@@ -34,7 +34,7 @@ function Overview() {
           </span>
           <strong>
             {grades[c.id]?.toFixed(1) ?? '—'}
-            <small>% {letter(grades[c.id])}</small>
+            <small>{grades[c.id] != null && '%' } {c.uploadId ? '' : letter(grades[c.id])}</small>
           </strong>
         </div>
       ))}
@@ -74,11 +74,12 @@ function GradeSimulator() {
 
       <div className="grade-layout">
         <section className="card pad-lg">
+          {!sim.categories.length && <p className="muted">No grading categories recorded.</p>}
           {sim.categories.map((cat) => (
             <div key={cat.id} className="cat">
               <div className="cat-head">
                 <strong>{cat.name}</strong>
-                <span className="muted">{cat.weight}% of grade</span>
+                <span className="muted">{cat.weight == null ? 'Weight unknown' : `${cat.weight}% of grade`}</span>
                 <span className="grow" />
                 <span>{cat.projected != null ? `${cat.projected.toFixed(1)}%` : '—'}</span>
               </div>
@@ -88,8 +89,10 @@ function GradeSimulator() {
                     <TypeIcon type={a.type} />
                   </span>
                   <span className="item-title">{a.title}</span>
-                  <span className="muted">{fmtMonthDay(parseISO(a.date))}</span>
-                  {a.score != null ? (
+                  <span className="muted">{a.date ? fmtMonthDay(parseISO(a.date)) : a.dateText ?? 'Date unknown'}</span>
+                  {a.points == null ? (
+                    <span className="muted">Points unknown</span>
+                  ) : a.score != null ? (
                     <span className="item-score">
                       {a.score}/{a.points} <b>{((a.score / a.points) * 100).toFixed(0)}%</b>
                     </span>
@@ -116,27 +119,37 @@ function GradeSimulator() {
           <div className="big-grade">
             <span>Current</span>
             <strong>{real.current?.toFixed(1) ?? '—'}%</strong>
-            <em>{letter(real.current)}</em>
+            {!course.uploadId && <em>{letter(real.current)}</em>}
           </div>
           <div className="big-grade accent-box">
             <span>Projected with your what-ifs</span>
             <strong>{sim.projected?.toFixed(1) ?? '—'}%</strong>
-            <em>{letter(sim.projected)}</em>
+            {!course.uploadId && <em>{letter(sim.projected)}</em>}
           </div>
           {sim.penalty > 0 && <p className="warn small">Includes −{sim.penalty}% attendance penalty.</p>}
           <button className="btn ghost small" onClick={() => setHypo({})} disabled={!Object.keys(hypo).length}>
             <RotateCcw size={14} /> Reset what-ifs
           </button>
 
-          <h4>What do I need?</h4>
-          <div className="letters">
+          {course.uploadId ? (
+            <>
+              {course.policies.letter_grades.length > 0 && <div>
+                <h4>Letter grade thresholds</h4>
+                <ul>{course.policies.letter_grades.map(({ letter, threshold }, i) => <li key={i}>{letter} · {threshold}</li>)}</ul>
+              </div>}
+              {course.policies.extra_credit && <div><h4>Extra credit</h4><p>{course.policies.extra_credit}</p></div>}
+              {course.policies.dropped_assignments && <div><h4>Dropped assignments</h4><p>{course.policies.dropped_assignments}</p></div>}
+            </>
+          ) : <>
+            <h4>What do I need?</h4>
+            <div className="letters">
             {LETTER_TARGETS.map((t) => (
               <button key={t[0]} className={t[0] === target[0] ? 'active' : ''} onClick={() => setTarget(t)}>
                 {t[0]}
               </button>
             ))}
-          </div>
-          <p className="need">
+            </div>
+            <p className="need">
             {need == null
               ? 'Nothing left to grade.'
               : need > 100
@@ -144,8 +157,9 @@ function GradeSimulator() {
                 : need <= 0
                   ? <>{target[0]} is locked in. 🎉</>
                   : <>Average <b className="accent">{need.toFixed(1)}%</b> on the {real.remaining.length} remaining item(s) to finish with {target[0]} ({target[1]}%+).</>}
-          </p>
-          <Snow>SQL · V_COURSE_GRADES</Snow>
+            </p>
+          </>}
+          {course.uploadId && <Snow>Snowflake</Snow>}
         </aside>
       </div>
     </>

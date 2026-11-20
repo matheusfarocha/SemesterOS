@@ -60,6 +60,7 @@ export async function askAssistant(question, { courses, assessments }, syllabi) 
     const target = parseTarget(question) ?? { label: 'your goal', value: null }
     const lines = scope.map((c) => {
       const t = target.value ?? c.target
+      if (t == null) return `**${c.short}** — specify a percentage to use as your goal.`
       const r = requiredScore(c, assessments, t)
       if (r == null) return `**${c.short}** — nothing left to grade.`
       if (r > 100) return `**${c.short}** — ${target.label === 'your goal' ? `${t}%` : target.label} is out of reach (would need ${r.toFixed(0)}% on everything left).`
@@ -71,13 +72,13 @@ export async function askAssistant(question, { courses, assessments }, syllabi) 
 
   if (/attend|absen|\bmiss(ed|ing)?\b|skip/.test(q)) {
     return {
-      text: scope.map((c) => `**${c.short}** — ${c.attendance.policy} You've used **${c.attendance.absences}/${c.attendance.maxAbsences}**.`).join('\n'),
+      text: scope.map((c) => `**${c.short}** — ${c.attendance.policy ?? 'No attendance policy recorded.'}${c.attendance.maxAbsences != null ? ` You've used **${c.attendance.absences}/${c.attendance.maxAbsences}**.` : ''}`).join('\n'),
       sources: scope.map((c) => src(c, 'attendance policy')),
     }
   }
 
   if (/\blate\b|extension/.test(q)) {
-    return { text: scope.map((c) => `**${c.short}** — ${c.latePolicy}`).join('\n'), sources: scope.map((c) => src(c, 'late policy')) }
+    return { text: scope.map((c) => `**${c.short}** — ${c.latePolicy ?? 'No late work policy recorded.'}`).join('\n'), sources: scope.map((c) => src(c, 'late policy')) }
   }
 
   if (/weight|worth|breakdown|grading|policy|percent|count/.test(q)) {
@@ -106,7 +107,7 @@ export async function askAssistant(question, { courses, assessments }, syllabi) 
     const horizon = /this week|busy/.test(q) ? 7 : 30
     const typeFilter = /project/.test(q) ? ['project'] : /exam|test|midterm|final/.test(q) ? ['exam'] : /quiz/.test(q) ? ['quiz'] : null
     const items = assessments
-      .filter((a) => a.score == null && scope.some((c) => c.id === a.courseId))
+      .filter((a) => a.date && a.score == null && scope.some((c) => c.id === a.courseId))
       .filter((a) => !typeFilter || typeFilter.includes(a.type))
       .map((a) => ({ ...a, days: daysBetween(TODAY, parseISO(a.date)) }))
       .filter((a) => a.days >= 0 && a.days <= horizon)

@@ -21,7 +21,7 @@ export default function CoursesPage() {
         {state.courses.map((c) => {
           const g = courseGrade(c, state.assessments)
           const next = state.assessments
-            .filter((a) => a.courseId === c.id && a.score == null && daysBetween(TODAY, parseISO(a.date)) >= 0)
+            .filter((a) => a.courseId === c.id && a.date && a.score == null && daysBetween(TODAY, parseISO(a.date)) >= 0)
             .sort((a, b) => a.date.localeCompare(b.date))[0]
           const at = c.attendance
           return (
@@ -33,41 +33,44 @@ export default function CoursesPage() {
                 </div>
                 <div className="grade-big">
                   <strong>{g.current == null ? '—' : `${g.current.toFixed(1)}%`}</strong>
-                  <span>{letter(g.current)}</span>
+                  {!c.uploadId && <span>{letter(g.current)}</span>}
                 </div>
               </header>
 
               <ul className="meta">
-                <li><Mail size={14} />{c.instructor} · {c.email}</li>
-                <li><Clock size={14} />{c.schedule}</li>
-                <li><MapPin size={14} />Office hours: {c.officeHours}</li>
+                {(c.instructor || c.email || c.contact) && <li><Mail size={14} />{[c.instructor, c.email, c.contact].filter(Boolean).join(' · ')}</li>}
+                {(c.semester || c.schedule) && <li><Clock size={14} />{[c.semester, c.schedule].filter(Boolean).join(' · ')}</li>}
+                {c.officeHours && <li><MapPin size={14} />Office hours: {c.officeHours}</li>}
               </ul>
 
-              <div className="weights-bar">
-                {c.categories.map((k) => (
+              {c.description && <p className="muted">{c.description}</p>}
+              {c.categories.some((k) => k.weight > 0) && <div className="weights-bar">
+                {c.categories.filter((k) => k.weight > 0).map((k) => (
                   <span key={k.id} style={{ flex: k.weight }} title={`${k.name} ${k.weight}%`}>
                     {k.name} <b>{k.weight}%</b>
                   </span>
                 ))}
-              </div>
+              </div>}
 
               <div className="attendance">
                 <div>
                   <strong>Attendance</strong>
-                  <p className="muted">{at.policy}</p>
+                  <p className="muted">{at.policy ?? 'No policy recorded.'}</p>
                 </div>
                 <div className="stepper">
                   <button className="icon-btn boxed" onClick={() => dispatch({ type: 'updateCourse', id: c.id, patch: { attendance: { ...at, absences: Math.max(0, at.absences - 1) } } })} aria-label="Remove absence">
                     <Minus size={14} />
                   </button>
-                  <span className={at.absences >= at.maxAbsences ? 'warn' : ''}>
-                    {at.absences}/{at.maxAbsences}
+                  <span className={at.maxAbsences != null && at.absences >= at.maxAbsences ? 'warn' : ''}>
+                    {at.absences}{at.maxAbsences != null && `/${at.maxAbsences}`}
                   </span>
                   <button className="icon-btn boxed" onClick={() => dispatch({ type: 'updateCourse', id: c.id, patch: { attendance: { ...at, absences: at.absences + 1 } } })} aria-label="Add absence">
                     <Plus size={14} />
                   </button>
                 </div>
               </div>
+              {c.latePolicy && <div><strong>Late work</strong><p className="muted">{c.latePolicy}</p></div>}
+              {c.policies?.other && <div><strong>Other academic rules</strong><p className="muted">{c.policies.other}</p></div>}
 
               <footer>
                 {next ? (
@@ -77,7 +80,8 @@ export default function CoursesPage() {
                 ) : (
                   <span className="muted">No upcoming deadlines</span>
                 )}
-                <button className="icon-btn tiny" title="Remove course" onClick={() => confirm(`Remove ${c.code}?`) && dispatch({ type: 'removeCourse', id: c.id })}>
+                <button className="icon-btn tiny" title={c.uploadId ? 'Hide course in this browser' : 'Remove course'}
+                  onClick={() => confirm(c.uploadId ? `Hide ${c.code} in this browser?` : `Remove ${c.code}?`) && dispatch({ type: 'removeCourse', id: c.id })}>
                   <Trash2 size={14} />
                 </button>
               </footer>
@@ -85,7 +89,7 @@ export default function CoursesPage() {
           )
         })}
       </div>
-      <Snow>SQL + Tables · COURSES, GRADE_CATEGORIES, ASSESSMENTS</Snow>
+      <Snow>Snowflake</Snow>
 
     </>
   )
