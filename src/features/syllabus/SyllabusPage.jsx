@@ -15,8 +15,8 @@ export default function SyllabusPage() {
       <PageHeader title="Smart Syllabus Upload" sub="Drop in a syllabus. We pull out deadlines, grading, attendance and policies." />
       {added && (
         <div className="flash">
-          Added {added.name}. View its events on your <Link to="/">calendar</Link> and its grading policy in{' '}
-          <Link to="/grades">Grades</Link>.
+          Added {added.name}. View its events on your <Link to="/">calendar</Link> and its grades in{' '}
+          <Link to="/courses">Courses</Link>.
         </div>
       )}
       <div className="syllabus-layout">

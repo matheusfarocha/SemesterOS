@@ -1,50 +1,7 @@
-.gpa-bar { display: flex; align-items: center; gap: 32px; padding: 16px 22px; margin-bottom: 18px; flex-wrap: wrap; }
-.gpa-bar > div { display: flex; flex-direction: column; gap: 2px; }
-.gpa-bar strong { font-size: 30px; }
-.gpa-bar small { font-size: 15px; }
-.gpa-whatif { padding-left: 32px; border-left: 1px solid var(--line); }
-.gpa-whatif strong { color: var(--accent-text); }
-
-.gcards { display: flex; flex-direction: column; gap: 12px; margin-bottom: 14px; }
-.gcard { border-left: 4px solid var(--c); overflow: hidden; }
-.gcard-head { width: 100%; display: grid; grid-template-columns: 12px 200px 110px 120px 1fr 20px; align-items: center; gap: 16px; padding: 16px 20px; text-align: left; }
-.gcard-head:hover { background: rgba(255, 255, 255, 0.02); }
-.gcard-name { display: flex; flex-direction: column; min-width: 0; }
-.gcard-name strong { font-size: 17px; }
-.gcard-name span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.gcard-now { display: flex; align-items: baseline; gap: 6px; }
-.gcard-now strong { font-size: 22px; }
-.gcard-now span { color: var(--accent-text); font-weight: 600; }
-.gcard-text { color: #c9ccd6; font-size: 14px; }
-.gcard-chev { color: var(--muted); transition: transform 0.2s; }
-.gcard.open .gcard-chev { transform: rotate(180deg); }
-
-
-.gcard-body { padding: 4px 20px 20px 48px; display: flex; flex-direction: column; gap: 18px; border-top: 1px solid var(--line); padding-top: 16px; }
-.goal { display: flex; align-items: center; gap: 10px; font-weight: 500; }
-.gsec h4 { font-size: 14px; color: #d4d6de; margin-bottom: 8px; }
-.grow-item { display: flex; align-items: center; gap: 12px; padding: 6px 0; }
-.gi-title { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.grow-item input[type='range'] { width: 220px; accent-color: var(--c); padding: 0; border: 0; background: transparent; }
-.grow-item b { min-width: 44px; text-align: right; }
-.score-in { width: 90px; }
-.skip { font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
-.skip.on { border-color: #f87171; color: #f87171; background: rgba(239, 68, 68, 0.1); }
-.absences { display: flex; align-items: center; justify-content: space-between; background: var(--panel-2); border-radius: 10px; padding: 12px 14px; }
-.absences h4 { margin-bottom: 2px; }
-.result { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-radius: 10px; background: var(--panel-2); font-size: 15px; }
-.result.changed { background: linear-gradient(135deg, rgba(139, 92, 246, 0.22), rgba(139, 92, 246, 0.06)); border: 1px solid rgba(139, 92, 246, 0.4); }
-.result b { font-size: 20px; }
-.result em { font-style: normal; color: var(--accent-text); font-weight: 600; }
-.result .link-btn { display: inline-flex; align-items: center; gap: 4px; }
-.graded summary { cursor: pointer; color: var(--muted); font-size: 14px; }
-.graded .grow-item { padding-left: 4px; }
-
-@media (max-width: 1000px) {
-  .gcard-head { grid-template-columns: 12px 1fr auto 20px; }
-  .gcard-head .chip-status, .gcard-text { grid-column: 2 / -1; }
-  .gcard-body { padding-left: 20px; }
-  .grow-item { flex-wrap: wrap; }
-  .grow-item input[type='range'] { width: 100%; }
-}
-.syllabus-policies { display: flex; flex-direction: column; gap: 10px; }
+/* Goal + scores inside Courses > Grades */
+.gtools { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.goal { display: flex; align-items: center; gap: 10px; font-weight: 500; margin-bottom: 16px; }
+.gtools .tbl td { vertical-align: middle; padding-top: 6px; padding-bottom: 6px; }
+.score-in { width: 72px; padding: 5px 8px; text-align: right; }
+.gtools .pct { width: 90px; }
+.gtools .tbl td:first-child { width: 110px; }

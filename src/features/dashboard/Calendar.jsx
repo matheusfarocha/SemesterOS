@@ -6,6 +6,7 @@ import { useWorkload } from '@/features/workload/useWorkload'
 import { weekLoad, weekSummary, gradeImpact, prepDays } from '@/features/workload/workload.service'
 import WorkloadBreakdown from '@/features/workload/WorkloadBreakdown'
 import { TypeIcon, Modal } from '@/shared/ui/ui'
+import { useSlidingPill } from '@/shared/ui/useSlidingPill'
 import AddItemModal from './AddItemModal'
 
 const VIEWS = ['Month', 'Week', 'Agenda']
@@ -21,6 +22,7 @@ export default function Calendar() {
   const [dayOpen, setDayOpen] = useState(null) // iso date in the "all items" modal
   const [why, setWhy] = useState(null) // week start whose load breakdown is open
   const [adding, setAdding] = useState(false)
+  const [viewsRef, viewPill] = useSlidingPill('button.active', view)
   const wl = useWorkload()
 
   const byDate = useMemo(() => {
@@ -89,7 +91,8 @@ export default function Calendar() {
         </div>
 
         <div className="cal-actions">
-          <div className="segmented small">
+          <div className="segmented small" ref={viewsRef}>
+            <span className="seg-pill" aria-hidden style={viewPill} />
             {VIEWS.map((v) => (
               <button key={v} className={v === view ? 'active' : ''} onClick={() => setView(v)}>
                 {v}

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Upload, Megaphone } from 'lucide-react'
 import { useStore } from '@/store/store'
-import { courseStatus } from '@/features/grades/grades.service'
+import { courseStatus, courseGrade, semesterGPA } from '@/features/grades/grades.service'
 import { TODAY, parseISO, daysBetween } from '@/shared/lib/dates'
 import { PageHeader, Snow } from '@/shared/ui/ui'
 import PasteUpdateModal from '@/features/updates/PasteUpdateModal'
@@ -30,9 +30,13 @@ export default function CoursesPage() {
     return out
   }, [state.courses, state.assessments])
 
+  // Only courses with real grades count toward GPA. No made-up numbers.
+  const graded = state.courses.filter((c) => courseGrade(c, state.assessments).current != null)
+  const gpa = semesterGPA(graded, Object.fromEntries(graded.map((c) => [c.id, courseGrade(c, state.assessments).projected])))
+
   return (
     <>
-      <PageHeader title="Courses" sub="Select a course to see its details.">
+      <PageHeader title="Courses" sub={gpa == null ? 'Select a course to see its details.' : `Semester GPA ${gpa.toFixed(2)} on your current pace.`}>
         <div className="head-actions">
           <button className="btn ghost" onClick={() => setPasting(true)}>
             <Megaphone size={16} /> Paste an update

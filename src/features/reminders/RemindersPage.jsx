@@ -7,6 +7,7 @@ import { weekLoad } from '@/features/workload/workload.service'
 import WorkloadBreakdown from '@/features/workload/WorkloadBreakdown'
 import { TODAY, addDays, startOfWeek, fmtMonthDay, iso } from '@/shared/lib/dates'
 import { PageHeader, Snow } from '@/shared/ui/ui'
+import { useSlidingPill } from '@/shared/ui/useSlidingPill'
 import './reminders.css'
 
 const FILTERS = [
@@ -21,6 +22,7 @@ export default function RemindersPage() {
   const { state } = useStore()
   const wl = useWorkload()
   const [filter, setFilter] = useState('all')
+  const [filtersRef, filterPill] = useSlidingPill('button.active', filter)
   const [sel, setSel] = useState(0)
   const reminders = useMemo(() => generateReminders(state), [state])
   const shown = filter === 'all' ? reminders : reminders.filter((r) => r.kind === filter)
@@ -33,7 +35,8 @@ export default function RemindersPage() {
   return (
     <>
       <PageHeader title="Smart Reminders" sub="Deadlines, crunch points and risks, before they sneak up on you.">
-        <div className="segmented">
+        <div className="segmented" ref={filtersRef}>
+          <span className="seg-pill" aria-hidden style={filterPill} />
           {FILTERS.map((f) => (
             <button key={f.id} className={filter === f.id ? 'active' : ''} onClick={() => setFilter(f.id)}>
               {f.label}

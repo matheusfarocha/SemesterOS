@@ -89,7 +89,7 @@ export function semesterGPA(courses, gradeById) {
 export function gradeVerdict(g, need, target) {
   const left = g.remaining.length
   if (g.current == null) return { tone: 'muted', label: 'No grades yet', text: 'Enter a score below to see where you stand.' }
-  if (target == null) return { tone: 'muted', label: 'No goal set', text: 'Pick a goal in Grades to see what you need on the rest.' }
+  if (target == null) return { tone: 'muted', label: 'No goal set', text: 'Pick a goal below to see what you need on the rest.' }
   if (need == null) return { tone: 'muted', label: 'Complete', text: 'Everything is graded.' }
   if (need <= 0) return { tone: 'ok', label: 'Locked in', text: `You'll reach ${target}% even with zeros on the rest.` }
   if (need > 100) return { tone: 'bad', label: 'Out of reach', text: `You'd need ${need.toFixed(0)}% on everything left. Try a lower goal.` }

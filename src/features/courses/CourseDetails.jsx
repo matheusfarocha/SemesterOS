@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useStore } from '@/store/store'
 import { TODAY, parseISO, daysBetween, fmtShort } from '@/shared/lib/dates'
+import GradeTools from '@/features/grades/GradeTools'
 
 // Plain-text topic for each rule, shown as a quiet secondary label
 const RULE_TOPICS = [
@@ -23,7 +24,9 @@ export default function CourseDetails({ course: c, summary: s, assessments }) {
   const at = c.attendance
   const left = at.maxAbsences == null ? null : at.maxAbsences - at.absences
   // Uploaded (Gemini) courses carry late-work and other rules in their policies; show them with the rules
-  const rules = [...(c.rules ?? []), ...(c.uploadId ? [c.latePolicy, c.policies?.other].filter(Boolean) : [])]
+  const p = c.policies ?? {}
+  const letters = p.letter_grades?.length ? `Letter grades: ${p.letter_grades.map(({ letter, threshold }) => `${letter} ${threshold}`).join(' · ')}` : null
+  const rules = [...(c.rules ?? []), ...(c.uploadId ? [c.latePolicy, p.other, p.extra_credit, p.dropped_assignments, letters].filter(Boolean) : [])]
   const setAbsences = (n) => dispatch({ type: 'updateCourse', id: c.id, patch: { attendance: { ...at, absences: Math.max(0, n) } } })
 
   const upcoming = assessments
@@ -33,7 +36,7 @@ export default function CourseDetails({ course: c, summary: s, assessments }) {
 
   const tabs = [
     ['overview', 'Overview'],
-    ['grading', 'Grading'],
+    ['grading', 'Grades'],
     ['attendance', 'Attendance'],
     ['rules', 'Rules', rules.length || null],
     ['confirm', 'To confirm', s.unknowns.length || null],
@@ -47,9 +50,6 @@ export default function CourseDetails({ course: c, summary: s, assessments }) {
           <span className="muted">{[c.code, c.semester, c.credits != null && `${c.credits} credits`].filter(Boolean).join(' · ')}</span>
         </div>
         <div className="details-actions">
-          <Link className="btn ghost small" to="/grades">
-            Open in Grades
-          </Link>
           <button
             className="btn ghost small danger"
             onClick={() => confirm(c.uploadId ? `Hide ${c.code} in this browser? It stays saved in Snowflake.` : `Remove ${c.code}?`) && dispatch({ type: 'removeCourse', id: c.id })}
@@ -96,7 +96,7 @@ export default function CourseDetails({ course: c, summary: s, assessments }) {
               </div>
               <div>
                 <dt>Goal</dt>
-                <dd>{c.target == null ? <Link to="/grades">Set a goal</Link> : `${c.target}%`}</dd>
+                <dd>{c.target == null ? <button className="link-btn" onClick={() => setTab('grading')}>Set a goal</button> : `${c.target}%`}</dd>
               </div>
             </dl>
             {c.description && <p className="muted course-desc">{c.description}</p>}
@@ -157,6 +157,7 @@ export default function CourseDetails({ course: c, summary: s, assessments }) {
               </tfoot>
             </table>
             <p className="note">{s.text}</p>
+            <GradeTools key={c.id} course={c} assessments={assessments} />
           </>
         )}
 
