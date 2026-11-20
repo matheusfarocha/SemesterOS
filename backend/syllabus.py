@@ -9,7 +9,8 @@ MAX_PDF_BYTES = 10 * 1024 * 1024
 Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=4000)]
 Percent = Annotated[float, Field(ge=0, le=100)]
 Identifier = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{32}$")]
-EventType = Literal["assignment", "quiz", "exam", "project", "presentation", "important_date"]
+GradedEventType = Literal["assignment", "quiz", "exam", "project", "presentation"]
+EventType = GradedEventType | Literal["important_date"]
 
 
 class Record(BaseModel):
@@ -76,6 +77,15 @@ class Syllabus(Record):
     policies: Policies
 
 
+class ExtractedEvent(Event):
+    type: GradedEventType
+    counts_toward_grade: bool
+
+
+class ExtractedSyllabus(Syllabus):
+    events: list[ExtractedEvent] = Field(max_length=500)
+
+
 class Confirm(Record):
     upload_id: Identifier
     syllabus: Syllabus
@@ -116,12 +126,17 @@ def normalize_time(raw):
 
 
 def decode_extraction(result, course_id):
-    syllabus = Syllabus.model_validate_json(result, strict=True)
-    for event in syllabus.events:
-        event.course_id = course_id
-        event.date = normalize_date(event.date_text)
-        event.time = normalize_time(event.time_text)
-    if not (syllabus.course.model_dump(exclude_none=True) or syllabus.events or syllabus.grading
-            or any(syllabus.policies.model_dump(exclude_none=True).values())):
+    extracted = ExtractedSyllabus.model_validate_json(result, strict=True)
+    events = [
+        Event(
+            **event.model_dump(exclude={"counts_toward_grade", "course_id", "date", "time"}),
+            course_id=course_id,
+            date=normalize_date(event.date_text),
+            time=normalize_time(event.time_text),
+        )
+        for event in extracted.events if event.counts_toward_grade
+    ]
+    if not (extracted.course.model_dump(exclude_none=True) or events or extracted.grading
+            or any(extracted.policies.model_dump(exclude_none=True).values())):
         raise ValueError("No syllabus information was extracted.")
-    return syllabus
+    return Syllabus(course=extracted.course, events=events, grading=extracted.grading, policies=extracted.policies)

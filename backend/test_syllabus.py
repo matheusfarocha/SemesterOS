@@ -12,10 +12,11 @@ class SyllabusExtractionTest(unittest.TestCase):
         syllabus = decode_extraction(json.dumps({
             "course": {"code": "MATH 2410", "semester": "Fall 2026"},
             "events": [
-                {"title": "Final exam", "type": "exam", "date_text": "December 10, 2026", "time_text": "2:30 p.m."},
-                {"title": "Presentation", "type": "presentation", "date_text": "Dec 3–5"},
-                {"title": "Project", "type": "project", "date_text": "11/4/2026"},
-                {"title": "Quiz", "type": "quiz", "date_text": "February 30, 2026"},
+                {"title": "Final exam", "type": "exam", "counts_toward_grade": True,
+                 "date_text": "December 10, 2026", "time_text": "2:30 p.m."},
+                {"title": "Presentation", "type": "presentation", "counts_toward_grade": True, "date_text": "Dec 3–5"},
+                {"title": "Project", "type": "project", "counts_toward_grade": True, "date_text": "11/4/2026"},
+                {"title": "Quiz", "type": "quiz", "counts_toward_grade": True, "date_text": "February 30, 2026"},
             ],
             "grading": [{"category": "Final exam", "weight": 30}, {"category": "Project"}],
             "policies": {"letter_grades": [{"letter": "A", "threshold": "90–100%"}]},
@@ -25,6 +26,7 @@ class SyllabusExtractionTest(unittest.TestCase):
         self.assertEqual(first["course_id"], upload_id)
         self.assertEqual(first["date"], "2026-12-10")
         self.assertEqual(first["time"], "14:30:00")
+        self.assertNotIn("counts_toward_grade", first)
         self.assertTrue(all(event["date"] is None for event in uncertain))
         self.assertEqual([event["date_text"] for event in uncertain], ["Dec 3–5", "11/4/2026", "February 30, 2026"])
         self.assertIsNone(syllabus["course"]["professor"])
