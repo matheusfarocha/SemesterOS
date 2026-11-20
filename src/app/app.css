@@ -1,0 +1,9 @@
+.topnav { display: flex; align-items: center; gap: 8px; padding: 12px 48px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--bg); z-index: 20; }
+.brand { font-weight: 700; font-size: 22px; letter-spacing: -0.02em; }
+.divider { width: 1px; height: 30px; background: var(--line); margin: 0 20px; }
+.tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+.tab { display: flex; align-items: center; gap: 10px; padding: 11px 18px; border-radius: 10px; color: #d6d8e0; font-size: 16px; text-decoration: none; white-space: nowrap; }
+.tab:hover { background: var(--panel-2); }
+.tab.active { background: #4c3a8a; color: white; }
+.settings-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; background: var(--panel-2); border-radius: 10px; }
+.settings-row div { display: flex; flex-direction: column; gap: 2px; }

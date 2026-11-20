@@ -1,0 +1,16 @@
+.course-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 20px; }
+.course { padding: 20px 22px; display: flex; flex-direction: column; gap: 14px; border-top: 4px solid var(--c); }
+.course header { display: flex; justify-content: space-between; gap: 12px; }
+.course .code { color: var(--c); font-weight: 600; font-size: 13px; letter-spacing: 0.04em; }
+.course h3 { font-size: 20px; margin-top: 2px; }
+.grade-big { text-align: right; display: flex; flex-direction: column; }
+.grade-big strong { font-size: 24px; }
+.grade-big span { color: var(--muted); }
+.meta { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; color: #b4b8c5; font-size: 14px; }
+.meta li { display: flex; align-items: center; gap: 8px; }
+.attendance { display: flex; justify-content: space-between; gap: 14px; align-items: center; background: var(--panel-2); padding: 12px; border-radius: 10px; }
+.attendance p { font-size: 13px; margin-top: 4px; }
+.course footer { display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: #c9ccd6; }
+.next { display: flex; align-items: center; gap: 6px; }
+.weights-bar { display: flex; gap: 3px; border-radius: 8px; overflow: hidden; font-size: 12px; }
+.weights-bar span { background: color-mix(in srgb, var(--c) 22%, transparent); padding: 7px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
