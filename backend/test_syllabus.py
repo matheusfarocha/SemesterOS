@@ -8,6 +8,18 @@ from .workspace import DATE_REVIEW_VERSION, decode_confirmed
 
 
 class SyllabusExtractionTest(unittest.TestCase):
+    def test_discards_registration_labels_from_extracted_course_identity(self):
+        for raw, expected in (
+            ({"name": "Introductory Psychology", "code": "11474"}, ("Introductory Psychology", None)),
+            ({"name": "11474", "code": "MATH 1206"}, (None, "MATH 1206")),
+            ({"name": "Introductory Psychology", "code": "TR11-LEC"}, ("Introductory Psychology", None)),
+        ):
+            with self.subTest(course=raw):
+                syllabus = decode_extraction(json.dumps({
+                    "course": raw, "events": [], "grading": [], "policies": {},
+                }), "a" * 32)
+                self.assertEqual((syllabus.course.name, syllabus.course.code), expected)
+
     def test_resolves_shorthand_dates_using_the_term_and_weekday(self):
         for raw, expected in (("12/21 (Mo)", "2026-12-21"), ("11/04 (We)", "2026-11-04")):
             with self.subTest(raw=raw):

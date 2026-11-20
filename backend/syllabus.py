@@ -11,6 +11,7 @@ Percent = Annotated[float, Field(ge=0, le=100)]
 Identifier = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{32}$")]
 GradedEventType = Literal["assignment", "quiz", "exam", "project", "presentation"]
 EventType = GradedEventType | Literal["important_date"]
+REGISTRATION_LABEL = re.compile(r"\d{5,}|[A-Z]{1,5}\d{1,4}-(?:LEC|LAB|SEM|REC)", re.IGNORECASE)
 
 
 class Record(BaseModel):
@@ -156,16 +157,21 @@ def normalize_time(raw):
 
 def decode_extraction(result, course_id):
     extracted = ExtractedSyllabus.model_validate_json(result, strict=True)
+    course = extracted.course
+    for field in ("name", "code"):
+        value = getattr(course, field)
+        if value and REGISTRATION_LABEL.fullmatch(value):
+            setattr(course, field, None)
     events = [
         Event(
             **event.model_dump(exclude={"counts_toward_grade", "course_id", "date", "time"}),
             course_id=course_id,
-            date=normalize_date(event.date_text, extracted.course.semester),
+            date=normalize_date(event.date_text, course.semester),
             time=normalize_time(event.time_text),
         )
         for event in extracted.events if event.counts_toward_grade
     ]
-    if not (extracted.course.model_dump(exclude_none=True) or events or extracted.grading
+    if not (course.model_dump(exclude_none=True) or events or extracted.grading
             or any(extracted.policies.model_dump(exclude_none=True).values())):
         raise ValueError("No syllabus information was extracted.")
-    return Syllabus(course=extracted.course, events=events, grading=extracted.grading, policies=extracted.policies)
+    return Syllabus(course=course, events=events, grading=extracted.grading, policies=extracted.policies)

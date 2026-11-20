@@ -13,7 +13,7 @@ export default function WorkloadBreakdown({ info, thresholds }) {
       <div className="wl-summary">
         <span className={`wl-level l-${info.level}`}>{LEVEL_COPY[info.level]}</span>
         <span>
-          <b>{info.score.toFixed(1)}</b> grade-points of work in this window
+          <b>{info.score.toFixed(1)}</b> workload points in this window
         </span>
         <span className="muted small">
           your moderate ≥ {thresholds.moderate.toFixed(1)} · heavy ≥ {thresholds.heavy.toFixed(1)}
@@ -38,7 +38,8 @@ export default function WorkloadBreakdown({ info, thresholds }) {
                 <span style={{ width: `${(load / max) * 100}%`, background: item.course.color }} />
               </div>
               <span className="muted small">
-                {item.impact.toFixed(1)}% of grade × {item.factors.credit.toFixed(2)} credits
+                {item.impact == null ? `${item.baseLoad.toFixed(1)} estimated from item type` : `${item.impact.toFixed(1)}% of grade`}
+                {' × '}{item.factors.credit.toFixed(2)} credit factor
                 {item.factors.risk > 1.001 && <> × {item.factors.risk.toFixed(2)} below-goal</>}
                 {item.estimated && <> × {ESTIMATE_DISCOUNT} estimated</>} · {item.prep}-day prep from {fmtMonthDay(parseISO(item.prepStart))}
               </span>

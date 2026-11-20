@@ -1,12 +1,11 @@
 // Workload / difficulty model.
 //
-// Score unit = "grade points at stake": how many percentage points of a course's final grade
-// fall in a window, adjusted for credits and risk, with prep spread over the days before each due date.
+// Workload uses grade impact where available and a type-based estimate otherwise.
 //
 //   load(item) = gradeImpact × creditFactor × riskBoost × (estimated ? 0.8 : 1)
 //   spread over prepDays(item) days before the due date, ramping up toward the deadline
 //
-// Weeks are rated relative to the student's own semester (percentiles), not fixed cutoffs.
+// Weekly ratings use semester percentiles with minimum cutoffs for sparse schedules.
 // Production: same math as a SQL view (V_DAILY_LOAD) over ASSESSMENTS + V_COURSE_GRADES.
 
 import { parseISO, addDays, iso, startOfWeek } from '@/shared/lib/dates'
@@ -16,21 +15,28 @@ export const PREP_DAYS = { exam: 7, project: 7, assignment: 4, quiz: 2 }
 export const FINAL_PREP_DAYS = 10
 export const ESTIMATE_DISCOUNT = 0.8
 const PERCENTILES = { moderate: 0.4, heavy: 0.75 }
+const MIN_THRESHOLDS = { moderate: 4, heavy: 10 }
+const ESTIMATED_LOAD = { exam: 6, project: 5, presentation: 4, assignment: 2, quiz: 1 }
 
 export const prepDays = (a) => (a.type === 'exam' && /final/i.test(a.title) ? FINAL_PREP_DAYS : PREP_DAYS[a.type] ?? 3)
 
 /** Percentage points of the course's final grade this item is worth. */
-export function gradeImpact(a, course, assessments) {
+function knownGradeImpact(a, course, assessments) {
   const cat = course.categories.find((c) => c.id === a.categoryId)
-  if (!cat || cat.weight == null || !(a.points > 0)) return 0 // uploaded syllabi may omit weights or points
+  if (cat?.weight === 0) return 0
+  if (!cat || cat.weight == null || !(a.points > 0)) return null
   const allInCat = assessments.filter((x) => x.categoryId === cat.id)
   // Same rule as courseGrade: if any item's points are unknown, the category's split is unknown
-  if (allInCat.some((x) => x.points == null)) return 0
+  if (allInCat.some((x) => x.points == null)) return null
   const inCat = allInCat.filter((x) => x.points > 0)
   const pts = inCat.reduce((s, x) => s + x.points, 0) || 1
   // If the syllabus promises more items than we know about yet, each known one is worth less
   const coverage = inCat.length / Math.max(inCat.length, cat.expectedCount ?? 0)
   return cat.weight * (a.points / pts) * coverage
+}
+
+export function gradeImpact(a, course, assessments) {
+  return knownGradeImpact(a, course, assessments) ?? 0
 }
 
 /** Below-goal courses weigh more: up to +50% when 10+ points under target. */
@@ -45,7 +51,7 @@ export function buildWorkload({ courses, assessments }) {
   const byId = Object.fromEntries(courses.map((c) => [c.id, c]))
   const withCredits = courses.filter((c) => c.credits > 0)
   const avgCredits = withCredits.reduce((s, c) => s + c.credits, 0) / (withCredits.length || 1)
-  const factors = Object.fromEntries(courses.map((c) => [c.id, { credit: (c.credits > 0 ? c.credits : avgCredits) / avgCredits, risk: riskBoost(c, assessments) }]))
+  const factors = Object.fromEntries(courses.map((c) => [c.id, { credit: c.credits > 0 ? c.credits / avgCredits : 1, risk: riskBoost(c, assessments) }]))
 
   const items = {}
   const daily = {}
@@ -53,12 +59,14 @@ export function buildWorkload({ courses, assessments }) {
     const course = byId[a.courseId]
     if (!course || a.undated || !a.date || a.type === 'important_date') continue
     const f = factors[course.id]
-    const impact = gradeImpact(a, course, assessments)
-    const load = impact * f.credit * f.risk * (a.estimated ? ESTIMATE_DISCOUNT : 1)
+    const impact = knownGradeImpact(a, course, assessments)
+    const baseLoad = impact ?? ESTIMATED_LOAD[a.type] ?? 2
+    if (baseLoad <= 0) continue
+    const load = baseLoad * f.credit * f.risk * (a.estimated ? ESTIMATE_DISCOUNT : 1)
     const n = prepDays(a)
     const due = parseISO(a.date)
     const ramp = (n * (n + 1)) / 2
-    items[a.id] = { ...a, course, impact, load, prep: n, factors: f, prepStart: iso(addDays(due, -(n - 1))) }
+    items[a.id] = { ...a, course, impact, baseLoad, load, prep: n, factors: f, prepStart: iso(addDays(due, -(n - 1))) }
     for (let k = 0; k < n; k++) {
       const day = iso(addDays(due, -(n - 1 - k)))
       ;(daily[day] ??= []).push({ id: a.id, load: (load * (k + 1)) / ramp })
@@ -90,7 +98,7 @@ export const weekLoad = (wl, weekStart) => windowLoad(wl, weekStart, 7)
 
 function thresholds(wl) {
   const days = Object.keys(wl.daily).sort()
-  if (!days.length) return { moderate: 1, heavy: 2 }
+  if (!days.length) return MIN_THRESHOLDS
   const scores = []
   for (let ws = startOfWeek(parseISO(days[0])); iso(ws) <= days[days.length - 1]; ws = addDays(ws, 7)) {
     const s = windowLoad({ ...wl, thresholds: { moderate: 0, heavy: 0 } }, ws).score
@@ -98,7 +106,10 @@ function thresholds(wl) {
   }
   scores.sort((a, b) => a - b)
   const q = (p) => scores[Math.floor(p * (scores.length - 1))] ?? 0
-  return { moderate: q(PERCENTILES.moderate), heavy: q(PERCENTILES.heavy) }
+  return {
+    moderate: Math.max(MIN_THRESHOLDS.moderate, q(PERCENTILES.moderate)),
+    heavy: Math.max(MIN_THRESHOLDS.heavy, q(PERCENTILES.heavy)),
+  }
 }
 
 export function levelOf(score, th) {

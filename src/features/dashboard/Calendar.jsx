@@ -254,7 +254,7 @@ function MonthView({ cursor, byDate, eventsByDate, wl, courseOf, selected, onSel
           const sum = weekSummary(wl, week[0])
           const current = iso(week[0]) === thisWeek
           const past = iso(week[6]) < iso(TODAY)
-          const tip = `${sum.label} week · ${sum.score.toFixed(0)} grade-points${sum.top ? ` · mostly ${sum.prepFor ? `prep for ${sum.top.title}` : sum.top.title}` : ''}`
+          const tip = `${sum.label} week · ${sum.score.toFixed(1)} workload points${sum.top ? ` · mostly ${sum.prepFor ? `prep for ${sum.top.title}` : sum.top.title}` : ''}`
           return (
             <div key={iso(week[0])} className={`week-row l-${sum.level} ${current ? 'current' : ''} ${past ? 'past' : ''}`}>
               <button className={`wk-label l-${sum.level}`} title={tip} aria-label={`Week of ${fmtMonthDay(week[0])}: ${tip}. Show details`} onClick={() => onWhy(week[0])}>
@@ -323,7 +323,7 @@ function WeekView({ start, byDate, eventsByDate, tasks, wl, onOpen, onWhy }) {
         <i className="lvl-dot" />
         {sum.label}
       </span>
-      <span className="num">{sum.score.toFixed(0)} grade-points</span>
+      <span className="num">{sum.score.toFixed(1)} workload points</span>
       {sum.top && (
         <span className="muted">
           · mostly {sum.prepFor ? `prep for ${sum.prepFor.title} (due ${fmtMonthDay(parseISO(sum.prepFor.date))})` : sum.top.title}
