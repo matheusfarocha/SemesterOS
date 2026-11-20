@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useLenis } from 'lenis/react'
 import { FileText, GraduationCap, Boxes, X } from 'lucide-react'
 
 export const TYPE_ICON = { assignment: FileText, quiz: FileText, exam: GraduationCap, project: Boxes }
@@ -9,6 +10,12 @@ export function TypeIcon({ type, size = 14 }) {
 }
 
 export function Modal({ title, onClose, children, wide }) {
+  // Freeze the page behind the modal; the modal itself still scrolls
+  const lenis = useLenis()
+  useEffect(() => {
+    lenis?.stop()
+    return () => lenis?.start()
+  }, [lenis])
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
