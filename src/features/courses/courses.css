@@ -99,3 +99,4 @@
   .tbl th:nth-child(3), .tbl td:nth-child(3) { display: none; }
   .rows li { flex-wrap: wrap; }
 }
+.course-desc { margin-top: 14px; }

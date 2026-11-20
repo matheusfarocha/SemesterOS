@@ -22,8 +22,11 @@ export const prepDays = (a) => (a.type === 'exam' && /final/i.test(a.title) ? FI
 /** Percentage points of the course's final grade this item is worth. */
 export function gradeImpact(a, course, assessments) {
   const cat = course.categories.find((c) => c.id === a.categoryId)
-  if (!cat) return 0
-  const inCat = assessments.filter((x) => x.categoryId === cat.id)
+  if (!cat || cat.weight == null || !(a.points > 0)) return 0 // uploaded syllabi may omit weights or points
+  const allInCat = assessments.filter((x) => x.categoryId === cat.id)
+  // Same rule as courseGrade: if any item's points are unknown, the category's split is unknown
+  if (allInCat.some((x) => x.points == null)) return 0
+  const inCat = allInCat.filter((x) => x.points > 0)
   const pts = inCat.reduce((s, x) => s + x.points, 0) || 1
   // If the syllabus promises more items than we know about yet, each known one is worth less
   const coverage = inCat.length / Math.max(inCat.length, cat.expectedCount ?? 0)
@@ -33,21 +36,22 @@ export function gradeImpact(a, course, assessments) {
 /** Below-goal courses weigh more: up to +50% when 10+ points under target. */
 export function riskBoost(course, assessments) {
   const g = courseGrade(course, assessments)
-  if (g.current == null) return 1 // no grades yet: no evidence of risk
+  if (g.current == null || course.target == null || g.projected == null) return 1 // no grades or no goal: no evidence of risk
   const p = g.projected
   return 1 + Math.min(0.5, Math.max(0, (course.target - p) / 20))
 }
 
 export function buildWorkload({ courses, assessments }) {
   const byId = Object.fromEntries(courses.map((c) => [c.id, c]))
-  const avgCredits = courses.reduce((s, c) => s + c.credits, 0) / (courses.length || 1)
-  const factors = Object.fromEntries(courses.map((c) => [c.id, { credit: c.credits / avgCredits, risk: riskBoost(c, assessments) }]))
+  const withCredits = courses.filter((c) => c.credits > 0)
+  const avgCredits = withCredits.reduce((s, c) => s + c.credits, 0) / (withCredits.length || 1)
+  const factors = Object.fromEntries(courses.map((c) => [c.id, { credit: (c.credits > 0 ? c.credits : avgCredits) / avgCredits, risk: riskBoost(c, assessments) }]))
 
   const items = {}
   const daily = {}
   for (const a of assessments) {
     const course = byId[a.courseId]
-    if (!course || a.undated) continue
+    if (!course || a.undated || !a.date || a.type === 'important_date') continue
     const f = factors[course.id]
     const impact = gradeImpact(a, course, assessments)
     const load = impact * f.credit * f.risk * (a.estimated ? ESTIMATE_DISCOUNT : 1)

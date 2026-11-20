@@ -5,16 +5,17 @@ Setup: `npm run dev`, open http://localhost:5173, then gear icon → **Reset dem
 ## 1. The problem (15s)
 "Every class hands you a syllabus with different rules, and half the dates say 'Week 5' or 'TBD'. Students track it all in their heads."
 
-## 2. Upload a real-format syllabus (60s)
-Gear icon → **Upload syllabus** → **CISC 3130 (real format, anonymized)** → **Extract with AI**.
+## 2. Upload a real syllabus (45s)
+Needs the backend running (`python -m uvicorn backend.main:app --port 8000`, see README).
+Gear icon → **Upload syllabus** → drop a syllabus PDF → **Extract with AI**.
 
 Point out:
-- Grading is a "20% Quizzes" table, the schedule is in **week numbers**, and the final is **TBD**. We still turned it into dates.
-- **"6 things to double-check"**: we never silently guess. Oct 13 follows a Monday schedule, so Homework 2 moved to Thursday. "4–6 assignments" vs 5 listed. Attendance is both 10% *and* a deduction.
-- Every inferred date is tagged **estimated**, with where it came from ("Syllabus week 13").
-- The **AI policy** and **important dates** (holidays, withdrawal deadline, finals window) are captured too.
+- Gemini reads the PDF and returns a **draft**. Nothing is saved until you review it.
+- Dates it can't pin down keep the syllabus wording ("TBD", "Each Wednesday") instead of a guessed date.
+- Grading weights, policies, office hours and contact info come out of the PDF.
 
-Click **Add course to semester**.
+Click **Add course**. It's stored in Snowflake and syncs into the calendar, Courses and Grades.
+On **Courses → To confirm**, the undated items and unstated weights are listed as things to chase.
 
 ## 3. Calendar: honest dates + difficulty that explains itself (60s)
 Go to **Calendar**.

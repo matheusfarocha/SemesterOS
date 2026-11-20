@@ -55,13 +55,13 @@ export async function askAssistant(question, { courses, assessments }, syllabi) 
   const mentioned = matchCourses(q, courses)
   const scope = mentioned.length ? mentioned : courses
   const src = (c, what) => `${c.code} · ${what}`
-  const aiLine = (c) => (c.aiPolicy ? `**${c.short}** — ${c.aiPolicy}` : `**${c.short}** — No AI policy in the syllabus. Ask ${c.instructor} before using AI tools.`)
+  const aiLine = (c) => (c.aiPolicy ? `**${c.short}** — ${c.aiPolicy}` : `**${c.short}** — No AI policy in the syllabus. Ask ${c.instructor ?? 'your instructor'} before using AI tools.`)
 
   // Academic integrity: help plan graded work, never produce it
   if (/\b(write|do|solve|finish|complete|code|answer)\b.{0,30}\b(my|the|this)\b.{0,20}\b(homework|hw|assignment|essay|pset|problem set|project|lab|quiz|exam|paper)/.test(q)) {
     const wantType = /exam|test|midterm|final/.test(q) ? 'exam' : /quiz/.test(q) ? 'quiz' : /project/.test(q) ? 'project' : 'assignment'
     const next = assessments
-      .filter((a) => a.score == null && !a.undated && a.type === wantType && scope.some((c) => c.id === a.courseId) && daysBetween(TODAY, parseISO(a.date)) >= 0)
+      .filter((a) => a.date && a.score == null && !a.undated && a.type === wantType && scope.some((c) => c.id === a.courseId) && daysBetween(TODAY, parseISO(a.date)) >= 0)
       .sort((a, b) => a.date.localeCompare(b.date))[0]
     const c = next && courses.find((x) => x.id === next.courseId)
     const lines = ["I can't do graded work for you. That would put your academic integrity at risk."]
@@ -70,7 +70,7 @@ export async function askAssistant(question, { courses, assessments }, syllabi) 
     if (next) {
       const start = addDays(parseISO(next.date), -(prepDays(next) - 1))
       lines.push(
-        `What I can do: **${next.title}** is due ${fmtShort(parseISO(next.date))}${next.estimated ? ' (estimated)' : ''} and is worth **${gradeImpact(next, c, assessments).toFixed(1)}%** of your ${c.short} grade. Start by ${fmtShort(start)}; ${c.instructor}'s office hours are ${c.officeHours}.`,
+        `What I can do: **${next.title}** is due ${fmtShort(parseISO(next.date))}${next.estimated ? ' (estimated)' : ''} and is worth **${gradeImpact(next, c, assessments).toFixed(1)}%** of your ${c.short} grade. Start by ${fmtShort(start)}${c.officeHours ? `; office hours are ${c.officeHours}` : ''}.`,
       )
     }
     return { text: lines.join('\n'), sources: [...strict.map((x) => src(x, 'AI policy')), ...(next ? ['Calendar · ASSESSMENTS'] : [])] }
@@ -85,6 +85,7 @@ export async function askAssistant(question, { courses, assessments }, syllabi) 
     const target = parseTarget(question) ?? { label: 'your goal', value: null }
     const lines = scope.map((c) => {
       const t = target.value ?? c.target
+      if (t == null) return `**${c.short}** — specify a percentage to use as your goal.`
       const r = requiredScore(c, assessments, t)
       if (r == null) return `**${c.short}** — nothing left to grade.`
       if (r > 100) return `**${c.short}** — ${target.label === 'your goal' ? `${t}%` : target.label} is out of reach (would need ${r.toFixed(0)}% on everything left).`
@@ -96,18 +97,18 @@ export async function askAssistant(question, { courses, assessments }, syllabi) 
 
   if (/attend|absen|\bmiss(ed|ing)?\b|skip/.test(q)) {
     return {
-      text: scope.map((c) => `**${c.short}** — ${c.attendance.policy} You've used **${c.attendance.absences}/${c.attendance.maxAbsences}**.`).join('\n'),
+      text: scope.map((c) => `**${c.short}** — ${c.attendance.policy ?? 'No attendance policy recorded.'}${c.attendance.maxAbsences != null ? ` You've used **${c.attendance.absences}/${c.attendance.maxAbsences}**.` : ''}`).join('\n'),
       sources: scope.map((c) => src(c, 'attendance policy')),
     }
   }
 
   if (/\blate\b|extension/.test(q)) {
-    return { text: scope.map((c) => `**${c.short}** — ${c.latePolicy}`).join('\n'), sources: scope.map((c) => src(c, 'late policy')) }
+    return { text: scope.map((c) => `**${c.short}** — ${c.latePolicy ?? 'No late work policy recorded.'}`).join('\n'), sources: scope.map((c) => src(c, 'late policy')) }
   }
 
   if (/weight|worth|breakdown|grading|policy|percent|count/.test(q)) {
     return {
-      text: scope.map((c) => `**${c.short}** — ${c.categories.map((k) => `${k.name} ${k.weight}%`).join(', ')}`).join('\n'),
+      text: scope.map((c) => `**${c.short}** — ${c.categories.map((k) => `${k.name} ${k.weight == null ? '(weight not stated)' : `${k.weight}%`}`).join(', ')}`).join('\n'),
       sources: scope.map((c) => src(c, 'grading policy')),
     }
   }
@@ -131,7 +132,7 @@ export async function askAssistant(question, { courses, assessments }, syllabi) 
     const horizon = /this week|busy/.test(q) ? 7 : 30
     const typeFilter = /project/.test(q) ? ['project'] : /exam|test|midterm|final/.test(q) ? ['exam'] : /quiz/.test(q) ? ['quiz'] : null
     const items = assessments
-      .filter((a) => a.score == null && !a.undated && scope.some((c) => c.id === a.courseId))
+      .filter((a) => a.date && a.score == null && !a.undated && scope.some((c) => c.id === a.courseId))
       .filter((a) => !typeFilter || typeFilter.includes(a.type))
       .map((a) => ({ ...a, days: daysBetween(TODAY, parseISO(a.date)) }))
       .filter((a) => a.days >= 0 && a.days <= horizon)

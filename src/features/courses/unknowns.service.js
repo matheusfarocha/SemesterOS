@@ -8,12 +8,14 @@ export function courseUnknowns(course, assessments) {
   const unknowns = []
 
   // Past items need a score, not a date (the Grades page asks for those), so only future dates count here
-  for (const a of items.filter((x) => x.score == null && (x.undated || daysBetween(TODAY, parseISO(x.date)) >= 0))) {
-    if (a.undated) unknowns.push({ kind: 'date', text: `${a.title}: no dates yet`, hint: 'Paste the announcement when they post it' })
+  for (const a of items.filter((x) => x.score == null && x.type !== 'important_date' && (x.undated || !x.date || daysBetween(TODAY, parseISO(x.date)) >= 0))) {
+    if (!a.date) unknowns.push({ kind: 'date', text: `${a.title}: no exact date${a.dateText ? ` ("${a.dateText}")` : ''}`, hint: 'Paste the announcement when they post it' })
+    else if (a.undated) unknowns.push({ kind: 'date', text: `${a.title}: no dates yet`, hint: 'Paste the announcement when they post it' })
     else if (a.windowEnd) unknowns.push({ kind: 'date', text: `${a.title}: date TBD (${fmtMonthDay(parseISO(a.date))}–${fmtMonthDay(parseISO(a.windowEnd))})`, hint: 'Paste the exam schedule when it’s out' })
     else if (a.estimated) unknowns.push({ kind: 'date', text: `${a.title}: estimated ${fmtMonthDay(parseISO(a.date))}`, hint: 'Confirm it on the calendar' })
   }
   for (const c of course.categories) {
+    if (c.weight == null) unknowns.push({ kind: 'policy', text: `${c.name}: weight not stated in the syllabus` })
     const n = items.filter((a) => a.categoryId === c.id && !a.undated).length
     if (c.expectedCount > n) unknowns.push({ kind: 'count', text: `${c.name}: ${c.expectedCount - n} more expected, not announced yet` })
   }
@@ -23,7 +25,7 @@ export function courseUnknowns(course, assessments) {
 
   // Known facts: firm dates/grades, grading categories, stated policies, resolved questions
   const known =
-    items.filter((a) => !a.estimated && !a.undated).length +
+    items.filter((a) => a.date && !a.estimated && !a.undated).length +
     course.categories.length +
     (course.aiPolicy ? 1 : 0) +
     (course.latePolicy && !/not found/i.test(course.latePolicy) ? 1 : 0) +

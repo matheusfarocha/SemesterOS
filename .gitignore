@@ -3,3 +3,10 @@ dist
 .env
 # Real syllabi have real names/emails; keep them local
 samples/private/
+.env.*
+!.env.example
+.venv/
+.semesteros/
+__pycache__/
+*.p8
+*.pem

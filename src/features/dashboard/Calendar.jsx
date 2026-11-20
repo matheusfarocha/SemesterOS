@@ -25,7 +25,7 @@ export default function Calendar() {
 
   const byDate = useMemo(() => {
     const m = {}
-    for (const a of state.assessments) if (!a.undated) (m[a.date] ??= []).push(a)
+    for (const a of state.assessments) if (a.date && !a.undated) (m[a.date] ??= []).push(a)
     return m
   }, [state.assessments])
 
@@ -53,7 +53,12 @@ export default function Calendar() {
     view === 'Week'
       ? `${fmtMonthDay(weekCursor)} – ${fmtMonthDay(addDays(weekCursor, 6))}, ${addDays(weekCursor, 6).getFullYear()}`
       : `${fmtMonthDay(cursor)}, ${cursor.getFullYear()} – ${fmtMonthDay(monthEnd)}, ${monthEnd.getFullYear()}`
-  const monthOptions = Array.from({ length: 6 }, (_, i) => new Date(2026, 7 + i, 1))
+  // Fall 2026 plus every month that has an item (uploaded syllabi can be from other terms)
+  const monthOptions = [...new Set([
+    iso(cursor),
+    ...Array.from({ length: 6 }, (_, i) => iso(new Date(2026, 7 + i, 1))),
+    ...Object.keys(byDate).map((date) => `${date.slice(0, 7)}-01`),
+  ])].sort()
 
   return (
     <section className="card calendar">
@@ -70,9 +75,9 @@ export default function Calendar() {
                 <>
                   <ChevronDown size={16} />
                   <select value={iso(cursor)} onChange={(e) => setCursor(parseISO(e.target.value))} aria-label="Jump to month">
-                    {monthOptions.map((d) => (
-                      <option key={iso(d)} value={iso(d)}>
-                        {MONTHS[d.getMonth()]} {d.getFullYear()}
+                    {monthOptions.map((date) => (
+                      <option key={date} value={date}>
+                        {MONTHS[parseISO(date).getMonth()]} {date.slice(0, 4)}
                       </option>
                     ))}
                   </select>
@@ -347,8 +352,9 @@ function WeekView({ start, byDate, eventsByDate, tasks, wl, onOpen, onWhy }) {
 
 function AgendaView({ assessments, courseOf, onOpen }) {
   const items = assessments
-    .filter((a) => a.score == null && !a.undated && daysBetween(TODAY, parseISO(a.date)) >= 0)
+    .filter((a) => a.date && a.score == null && !a.undated && daysBetween(TODAY, parseISO(a.date)) >= 0)
     .sort((a, b) => a.date.localeCompare(b.date))
+  const undated = assessments.filter((a) => a.score == null && (!a.date || a.undated))
   return (
     <div className="agenda">
       {items.map((a) => {
@@ -378,6 +384,14 @@ function AgendaView({ assessments, courseOf, onOpen }) {
         )
       })}
       {!items.length && <p className="muted pad">Nothing upcoming.</p>}
+      {undated.length > 0 && <h4 className="pad">Events without an exact date</h4>}
+      {undated.map((a) => (
+        <button key={a.id} className="agenda-row" onClick={() => onOpen(a)}>
+          <TypeIcon type={a.type} />
+          <span className="agenda-main"><strong>{a.title}</strong><span>{courseOf(a.courseId)?.code}</span></span>
+          <span className="muted">{a.dateText ?? a.source ?? 'Date unknown'}</span>
+        </button>
+      ))}
     </div>
   )
 }
@@ -423,33 +437,47 @@ function EventModal({ item, course, assessments, onClose }) {
         </dd>
         <dt>Date</dt>
         <dd>
-          {fmtShort(parseISO(item.date))}
+          {item.date ? fmtShort(parseISO(item.date)) : item.dateText ?? 'Unknown'}
           {item.estimated && <span className="est-tag">estimated</span>}
         </dd>
+        {(item.time || item.timeText) && (
+          <>
+            <dt>Time</dt>
+            <dd>{item.time ? item.time.slice(0, 5) : item.timeText}</dd>
+          </>
+        )}
         <dt>Type</dt>
-        <dd className="cap">{item.type}</dd>
+        <dd className="cap">{item.type?.replace('_', ' ') ?? 'Unknown'}</dd>
         <dt>Category</dt>
         <dd>
-          {cat?.name} ({cat?.weight}% of grade)
+          {cat?.name ?? item.categoryName ?? 'Uncategorized'} {cat?.weight != null && `(${cat.weight}% of grade)`}
         </dd>
-        <dt>Worth</dt>
-        <dd>{impact.toFixed(1)}% of your final grade</dd>
-        <dt>Start prep</dt>
-        <dd>
-          {fmtShort(addDays(parseISO(item.date), -(prep - 1)))} ({prep}-day window)
-        </dd>
+        {impact > 0 && (
+          <>
+            <dt>Worth</dt>
+            <dd>{impact.toFixed(1)}% of your final grade</dd>
+          </>
+        )}
+        {item.date && (
+          <>
+            <dt>Start prep</dt>
+            <dd>
+              {fmtShort(addDays(parseISO(item.date), -(prep - 1)))} ({prep}-day window)
+            </dd>
+          </>
+        )}
       </dl>
-      <label className="field">
+      {item.points != null && <label className="field">
         <span>Score (out of {item.points})</span>
         <input type="number" min="0" value={score} placeholder="Not graded yet" onChange={(e) => setScore(e.target.value)} />
-      </label>
+      </label>}
       <div className="modal-actions">
         <button className="btn ghost" onClick={onClose}>
-          Cancel
+          {item.points == null ? 'Close' : 'Cancel'}
         </button>
-        <button className="btn primary" onClick={save}>
+        {item.points != null && <button className="btn primary" onClick={save}>
           Save score
-        </button>
+        </button>}
       </div>
     </Modal>
   )

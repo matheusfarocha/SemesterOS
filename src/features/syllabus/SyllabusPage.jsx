@@ -7,7 +7,7 @@ import SyllabusUploader from './SyllabusUploader'
 import './syllabus.css'
 
 export default function SyllabusPage() {
-  const { state } = useStore()
+  const { state, syncError, refreshSyllabi } = useStore()
   const [added, setAdded] = useState(null)
 
   return (
@@ -15,18 +15,23 @@ export default function SyllabusPage() {
       <PageHeader title="Smart Syllabus Upload" sub="Drop in a syllabus. We pull out deadlines, grading, attendance and policies." />
       {added && (
         <div className="flash">
-          Added {added.code} · {added.name}. Its deadlines are on your <Link to="/">calendar</Link> and grading is ready in{' '}
+          Added {added.name}. View its events on your <Link to="/">calendar</Link> and its grading policy in{' '}
           <Link to="/grades">Grades</Link>.
         </div>
       )}
       <div className="syllabus-layout">
-        <SyllabusUploader onDone={setAdded} />
+        <SyllabusUploader onDone={(course) => { setAdded(course); refreshSyllabi() }} />
         <aside className="card side-card">
           <header className="side-head">
             <FileText size={20} />
             <h2>Your syllabi</h2>
             <span className="count">{state.courses.length}</span>
           </header>
+          {syncError && (
+            <p className="small warn">
+              Couldn’t load saved syllabi. <button className="link-btn" onClick={refreshSyllabi}>Retry</button>
+            </p>
+          )}
           <ul className="syllabus-list">
             {state.courses.map((c) => (
               <li key={c.id}>

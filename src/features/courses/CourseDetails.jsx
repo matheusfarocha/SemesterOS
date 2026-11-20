@@ -21,11 +21,13 @@ export default function CourseDetails({ course: c, summary: s, assessments }) {
   const { dispatch } = useStore()
   const [tab, setTab] = useState('overview')
   const at = c.attendance
-  const left = at.maxAbsences - at.absences
+  const left = at.maxAbsences == null ? null : at.maxAbsences - at.absences
+  // Uploaded (Gemini) courses carry late-work and other rules in their policies; show them with the rules
+  const rules = [...(c.rules ?? []), ...(c.uploadId ? [c.latePolicy, c.policies?.other].filter(Boolean) : [])]
   const setAbsences = (n) => dispatch({ type: 'updateCourse', id: c.id, patch: { attendance: { ...at, absences: Math.max(0, n) } } })
 
   const upcoming = assessments
-    .filter((a) => a.courseId === c.id && a.score == null && !a.undated && daysBetween(TODAY, parseISO(a.date)) >= 0)
+    .filter((a) => a.courseId === c.id && a.date && a.score == null && !a.undated && daysBetween(TODAY, parseISO(a.date)) >= 0)
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(0, 4)
 
@@ -33,7 +35,7 @@ export default function CourseDetails({ course: c, summary: s, assessments }) {
     ['overview', 'Overview'],
     ['grading', 'Grading'],
     ['attendance', 'Attendance'],
-    ['rules', 'Rules', c.rules?.length || null],
+    ['rules', 'Rules', rules.length || null],
     ['confirm', 'To confirm', s.unknowns.length || null],
   ]
 
@@ -42,16 +44,17 @@ export default function CourseDetails({ course: c, summary: s, assessments }) {
       <header className="details-head">
         <div>
           <h2>{c.name}</h2>
-          <span className="muted">
-            {c.code} · {c.credits} credits
-          </span>
+          <span className="muted">{[c.code, c.semester, c.credits != null && `${c.credits} credits`].filter(Boolean).join(' · ')}</span>
         </div>
         <div className="details-actions">
           <Link className="btn ghost small" to="/grades">
             Open in Grades
           </Link>
-          <button className="btn ghost small danger" onClick={() => confirm(`Remove ${c.code}?`) && dispatch({ type: 'removeCourse', id: c.id })}>
-            Remove
+          <button
+            className="btn ghost small danger"
+            onClick={() => confirm(c.uploadId ? `Hide ${c.code} in this browser? It stays saved in Snowflake.` : `Remove ${c.code}?`) && dispatch({ type: 'removeCourse', id: c.id })}
+          >
+            {c.uploadId ? 'Hide' : 'Remove'}
           </button>
         </div>
       </header>
@@ -71,25 +74,32 @@ export default function CourseDetails({ course: c, summary: s, assessments }) {
             <dl className="props">
               <div>
                 <dt>Instructor</dt>
-                <dd>{c.instructor}</dd>
+                <dd>{c.instructor ?? '—'}</dd>
               </div>
               <div>
                 <dt>Email</dt>
                 <dd>{c.email ? <a href={`mailto:${c.email}`}>{c.email}</a> : '—'}</dd>
               </div>
+              {c.contact && (
+                <div>
+                  <dt>Contact</dt>
+                  <dd>{c.contact}</dd>
+                </div>
+              )}
               <div>
                 <dt>Class times</dt>
-                <dd>{c.schedule}</dd>
+                <dd>{c.schedule ?? '—'}</dd>
               </div>
               <div>
                 <dt>Office hours</dt>
-                <dd>{c.officeHours}</dd>
+                <dd>{c.officeHours ?? '—'}</dd>
               </div>
               <div>
                 <dt>Goal</dt>
-                <dd>{c.target}%</dd>
+                <dd>{c.target == null ? <Link to="/grades">Set a goal</Link> : `${c.target}%`}</dd>
               </div>
             </dl>
+            {c.description && <p className="muted course-desc">{c.description}</p>}
             <div>
               <h4 className="sub-h">Coming up</h4>
               {upcoming.length ? (
@@ -102,7 +112,7 @@ export default function CourseDetails({ course: c, summary: s, assessments }) {
                           {a.title}
                           {a.estimated && <span className="muted"> (estimated)</span>}
                         </td>
-                        <td className="muted cap right">{a.type}</td>
+                        <td className="muted cap right">{a.type?.replace('_', ' ') ?? ''}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -129,11 +139,11 @@ export default function CourseDetails({ course: c, summary: s, assessments }) {
                 {s.g.categories.map((k) => (
                   <tr key={k.id}>
                     <td>{k.name}</td>
-                    <td className="right num">{k.weight}%</td>
+                    <td className="right num">{k.weight == null ? '—' : `${k.weight}%`}</td>
                     <td className="right num muted">
                       {k.items.filter((a) => a.score != null).length} of {k.items.length}
                     </td>
-                    <td className={`right num ${k.avg != null && k.avg < c.target ? 'tone-warn' : ''}`}>{k.avg == null ? '—' : `${k.avg.toFixed(1)}%`}</td>
+                    <td className={`right num ${k.avg != null && c.target != null && k.avg < c.target ? 'tone-warn' : ''}`}>{k.avg == null ? '—' : `${k.avg.toFixed(1)}%`}</td>
                   </tr>
                 ))}
               </tbody>
@@ -150,22 +160,22 @@ export default function CourseDetails({ course: c, summary: s, assessments }) {
           </>
         )}
 
-        {tab === 'attendance' && at.graded === false && (
+        {tab === 'attendance' && (at.graded === false || at.maxAbsences == null) && (
           <div className="two-col">
             <dl className="props">
               <div>
                 <dt>Counts toward grade</dt>
-                <dd>No</dd>
+                <dd>{at.graded === false ? 'No' : 'Not stated in the syllabus'}</dd>
               </div>
             </dl>
             <div>
               <h4 className="sub-h">From the syllabus</h4>
-              <blockquote className="quote">{at.policy}</blockquote>
+              <blockquote className="quote">{at.policy ?? 'No attendance policy recorded.'}</blockquote>
             </div>
           </div>
         )}
 
-        {tab === 'attendance' && at.graded !== false && (
+        {tab === 'attendance' && at.graded !== false && at.maxAbsences != null && (
           <div className="two-col">
             <dl className="props">
               <div>
@@ -184,11 +194,11 @@ export default function CourseDetails({ course: c, summary: s, assessments }) {
               </div>
               <div>
                 <dt>After the limit</dt>
-                <dd>−{at.penalty}% of final grade per class</dd>
+                <dd>{at.penalty != null ? `−${at.penalty}% of final grade per class` : 'Not stated'}</dd>
               </div>
               <div>
                 <dt>Next absence</dt>
-                <dd className={left > 0 ? '' : 'tone-bad'}>{left > 0 ? `Free (${left} left)` : `Costs ${at.penalty}%`}</dd>
+                <dd className={left > 0 ? '' : 'tone-bad'}>{left > 0 ? `Free (${left} left)` : at.penalty != null ? `Costs ${at.penalty}%` : 'Over the limit'}</dd>
               </div>
             </dl>
             <div>
@@ -199,9 +209,9 @@ export default function CourseDetails({ course: c, summary: s, assessments }) {
         )}
 
         {tab === 'rules' &&
-          (c.rules?.length ? (
+          (rules.length ? (
             <ul className="rows">
-              {c.rules.map((r) => (
+              {rules.map((r) => (
                 <li key={r}>
                   <span>{r}</span>
                   <span className="muted nowrap">{ruleTopic(r)}</span>

@@ -42,7 +42,7 @@ export default function CourseStrip({ courses, summaries, active, onSelect }) {
                 <div>
                   <dt>Grade</dt>
                   <dd>
-                    {s.g.current == null ? '—' : `${s.g.current.toFixed(1)}%`} <span className="muted">{letter(s.g.current)}</span>
+                    {s.g.current == null ? '—' : `${s.g.current.toFixed(1)}%`} {!c.uploadId && <span className="muted">{letter(s.g.current)}</span>}
                   </dd>
                 </div>
                 <div>

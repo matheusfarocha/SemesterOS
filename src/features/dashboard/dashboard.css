@@ -188,3 +188,8 @@
   .weekview { grid-template-columns: 1fr; }
   .wcol { min-height: 0; border-left: 0; border-top: 1px solid var(--line); }
 }
+/* Uploaded syllabi can include presentations and non-graded important dates */
+.ev.t-presentation, .type-pill.t-presentation { --tc: var(--project); }
+.ev.t-important_date { --tc: var(--muted); }
+.chip.t-presentation { background: #164e3a; }
+.chip.t-important_date { background: var(--panel-2); }

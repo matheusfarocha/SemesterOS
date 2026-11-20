@@ -23,7 +23,7 @@ export default function CoursesPage() {
     for (const c of state.courses) {
       const { unknowns, pct } = courseUnknowns(c, state.assessments)
       const next = state.assessments
-        .filter((a) => a.courseId === c.id && a.score == null && !a.undated && daysBetween(TODAY, parseISO(a.date)) >= 0)
+        .filter((a) => a.courseId === c.id && a.date && a.score == null && !a.undated && daysBetween(TODAY, parseISO(a.date)) >= 0)
         .sort((a, b) => a.date.localeCompare(b.date))[0]
       out[c.id] = { ...courseStatus(c, state.assessments), unknowns, knownPct: pct, next }
     }

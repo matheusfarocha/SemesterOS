@@ -23,13 +23,20 @@ export default function CourseGradeCard({ course, assessments, whatIf, onWhatIf,
   const changed = hypoVals.length > 0 || absences !== course.attendance.absences
 
   const items = assessments.filter((a) => a.courseId === course.id)
-  const awaiting = items.filter((a) => a.score == null && !a.undated && daysBetween(TODAY, parseISO(a.date)) < 0)
-  const upcoming = items.filter((a) => a.score == null && !awaiting.includes(a)).sort((a, b) => a.date.localeCompare(b.date))
+  // Uploaded (Gemini) items may have no exact date or no points; only point-based items can be scored or simulated
+  const scorable = items.filter((a) => a.points > 0 && a.type !== 'important_date')
+  const awaiting = scorable.filter((a) => a.score == null && !a.undated && a.date && daysBetween(TODAY, parseISO(a.date)) < 0)
+  const upcoming = scorable.filter((a) => a.score == null && !awaiting.includes(a)).sort((a, b) => (a.date ?? '9999').localeCompare(b.date ?? '9999'))
+  const unscorable = items.filter((a) => !(a.points > 0) && a.type !== 'important_date')
+  // Uploaded courses use the syllabus's own letter scale, so don't show our default letters
+  const showLetters = !course.uploadId
+  const showLetter = (p) => (showLetters ? letter(p) : '')
+  const policies = course.policies ?? {}
   const graded = items.filter((a) => a.score != null)
   const guess = Math.round(g.current ?? 85)
 
   const setHypo = (id, val) => onWhatIf({ hypo: { ...hypo, [id]: val }, absences })
-  const targets = LETTER_TARGETS.some(([, t]) => t === course.target) ? LETTER_TARGETS : [...LETTER_TARGETS, [`${course.target}%`, course.target]]
+  const targets = course.target == null || LETTER_TARGETS.some(([, t]) => t === course.target) ? LETTER_TARGETS : [...LETTER_TARGETS, [`${course.target}%`, course.target]]
   const at = course.attendance
 
   return (
@@ -42,7 +49,7 @@ export default function CourseGradeCard({ course, assessments, whatIf, onWhatIf,
         </div>
         <div className="gcard-now">
           <strong>{g.current == null ? '—' : `${g.current.toFixed(1)}%`}</strong>
-          <span>{letter(g.current)}</span>
+          <span>{showLetter(g.current)}</span>
         </div>
         <span className={`chip-status s-${v.tone}`}>{v.label}</span>
         <p className="gcard-text">{v.text}</p>
@@ -53,7 +60,8 @@ export default function CourseGradeCard({ course, assessments, whatIf, onWhatIf,
         <div className="gcard-body">
           <label className="goal">
             Goal
-            <select value={course.target} onChange={(e) => dispatch({ type: 'updateCourse', id: course.id, patch: { target: Number(e.target.value) } })}>
+            <select value={course.target ?? ''} onChange={(e) => dispatch({ type: 'updateCourse', id: course.id, patch: { target: e.target.value === '' ? null : Number(e.target.value) } })}>
+              {course.target == null && <option value="">Choose a goal…</option>}
               {targets.map(([l, t]) => (
                 <option key={l} value={t}>
                   {l} ({t}%+)
@@ -71,7 +79,7 @@ export default function CourseGradeCard({ course, assessments, whatIf, onWhatIf,
                     <TypeIcon type={a.type} />
                   </span>
                   <span className="gi-title">{a.title}</span>
-                  <span className="muted small">{fmtMonthDay(parseISO(a.date))}</span>
+                  <span className="muted small">{a.date ? fmtMonthDay(parseISO(a.date)) : a.dateText ?? 'no date'}</span>
                   <input
                     className="score-in"
                     type="number"
@@ -98,7 +106,8 @@ export default function CourseGradeCard({ course, assessments, whatIf, onWhatIf,
                   <span className="gi-title">
                     {a.title}
                     <span className="muted small">
-                      {a.undated ? 'no date yet' : fmtMonthDay(parseISO(a.date))} · worth {gradeImpact(a, course, assessments).toFixed(0)}% of grade
+                      {a.undated || !a.date ? a.dateText ?? 'no date yet' : fmtMonthDay(parseISO(a.date))}
+                      {gradeImpact(a, course, assessments) > 0 && ` · worth ${gradeImpact(a, course, assessments).toFixed(0)}% of grade`}
                       {a.estimated && !a.undated && <span className="est-tag">est.</span>}
                     </span>
                   </span>
@@ -114,6 +123,14 @@ export default function CourseGradeCard({ course, assessments, whatIf, onWhatIf,
             })}
           </div>
 
+          {at.maxAbsences == null || at.penalty == null || at.graded === false ? (
+            <div className="gsec absences">
+              <div>
+                <h4>Missed classes</h4>
+                <span className="muted small">The syllabus doesn't set an absence penalty, so missed classes don't change this projection.</span>
+              </div>
+            </div>
+          ) : (
           <div className="gsec absences">
             <div>
               <h4>Missed classes</h4>
@@ -131,12 +148,13 @@ export default function CourseGradeCard({ course, assessments, whatIf, onWhatIf,
               </button>
             </div>
           </div>
+          )}
 
           <div className={`result ${changed ? 'changed' : ''}`}>
             {sim ? (
               <span>
                 {changed ? 'With these what-ifs you’d finish at' : 'If you keep this pace you’ll finish around'} <b>{sim.projected.toFixed(1)}%</b>{' '}
-                <em>{letter(sim.projected)}</em>
+                <em>{showLetter(sim.projected)}</em>
                 {sim.penalty > 0 && <span className="warn small"> (includes −{sim.penalty}% for absences)</span>}
               </span>
             ) : (
@@ -149,13 +167,42 @@ export default function CourseGradeCard({ course, assessments, whatIf, onWhatIf,
             )}
           </div>
 
+          {unscorable.length > 0 && (
+            <p className="muted small">
+              {unscorable.length} item{unscorable.length > 1 ? 's have' : ' has'} no point value in the syllabus, so {unscorable.length > 1 ? "they aren't" : "it isn't"} included in what-ifs.
+            </p>
+          )}
+
+          {course.uploadId && (policies.letter_grades?.length > 0 || policies.extra_credit || policies.dropped_assignments) && (
+            <div className="gsec syllabus-policies">
+              {policies.letter_grades?.length > 0 && (
+                <div>
+                  <h4>Letter grades (from the syllabus)</h4>
+                  <p className="muted small">{policies.letter_grades.map(({ letter: l, threshold }) => `${l} ${threshold}`).join(' · ')}</p>
+                </div>
+              )}
+              {policies.extra_credit && (
+                <div>
+                  <h4>Extra credit</h4>
+                  <p className="muted small">{policies.extra_credit}</p>
+                </div>
+              )}
+              {policies.dropped_assignments && (
+                <div>
+                  <h4>Dropped work</h4>
+                  <p className="muted small">{policies.dropped_assignments}</p>
+                </div>
+              )}
+            </div>
+          )}
+
           {graded.length > 0 && (
             <details className="graded">
               <summary>Graded so far ({graded.length})</summary>
               {graded.map((a) => (
                 <div key={a.id} className="grow-item">
                   <span className="gi-title">{a.title}</span>
-                  <span className="muted small">{fmtMonthDay(parseISO(a.date))}</span>
+                  <span className="muted small">{a.date ? fmtMonthDay(parseISO(a.date)) : a.dateText}</span>
                   <b>{((a.score / a.points) * 100).toFixed(0)}%</b>
                 </div>
               ))}

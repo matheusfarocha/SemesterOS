@@ -47,3 +47,4 @@
   .grow-item { flex-wrap: wrap; }
   .grow-item input[type='range'] { width: 100%; }
 }
+.syllabus-policies { display: flex; flex-direction: column; gap: 10px; }
