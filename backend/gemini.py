@@ -7,7 +7,7 @@ import re
 import requests
 
 from .snowflake_db import ConfigurationError
-from .syllabus import Syllabus, decode_extraction
+from .syllabus import ExtractedSyllabus, decode_extraction
 
 DEFAULT_MODEL = "gemini-3.5-flash-lite"
 API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
@@ -18,15 +18,23 @@ Use only facts supported by the PDF. Use null when a scalar is missing and an em
 array when there are no entries.
 
 Extract course name, code, instructor, contact details, term, schedule, office hours,
-description, and credits. List assignments, quizzes, exams (including midterms and
-finals), projects, presentations, and other meaningful course dates. Include named
-assignments even if their deadlines are unknown. Keep date_text and time_text verbatim
-from the syllabus, including any year, ambiguity, or time zone. Use a grading_category
-only when the event can be tied to a category in the syllabus. Use numeric percentage
-weights and points when explicitly stated. Record letter grade thresholds as written
-and capture the attendance, absence, late work, extra credit, dropped work, and other
-academic policies. The absence penalty is the percentage-point deduction per absence
-beyond the stated limit.
+description, and credits.
+
+Include only events that affect the course grade: graded assignments, quizzes,
+midterms, finals, projects, presentations, or extra-credit work. Classify other graded
+work such as labs or submissions as assignments. Set counts_toward_grade to true only
+when the syllabus identifies the item as assessed or ties it to a grading category.
+Omit lecture topics, readings, class meetings, review sessions, and practice work that
+does not count toward the grade. A date on a schedule alone does not make an item
+graded. If a row lists both a lecture topic and a graded deadline, extract only the
+graded item and its associated deadline. Include named graded work with unknown dates.
+Keep date_text and time_text verbatim when available, including year, ambiguity, or
+time zone. Set grading_category only when the syllabus links the item to a category.
+Use numeric grading weights and points when explicitly stated.
+
+Record letter grade thresholds as written and capture the attendance, absence, late
+work, extra credit, dropped work, and other academic policies. The absence penalty
+is the percentage-point deduction per absence beyond the stated limit.
 """
 
 
@@ -35,9 +43,9 @@ class GeminiError(Exception):
 
 
 def response_schema():
-    schema = Syllabus.model_json_schema()
+    schema = ExtractedSyllabus.model_json_schema()
     # Calendar normalization and identifiers belong to SemesterOS, never the model.
-    event = schema["$defs"]["Event"]["properties"]
+    event = schema["$defs"]["ExtractedEvent"]["properties"]
     for name in ("course_id", "date", "time"):
         del event[name]
     return supported_schema(schema)

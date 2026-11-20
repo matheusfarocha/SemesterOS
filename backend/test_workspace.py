@@ -15,8 +15,10 @@ PDF = b"%PDF-1.4\n"
 GEMINI_BODY = {
     "course": {"code": "MATH 2410", "semester": "Fall 2026"},
     "events": [
-        {"title": "Final exam", "date_text": "December 9, 2026", "time_text": "10:00 AM", "grading_category": "Final Exam"},
-        {"title": "Project", "date_text": "Week 10"},
+        {"title": "Final exam", "type": "exam", "counts_toward_grade": True,
+         "date_text": "December 9, 2026", "time_text": "10:00 AM", "grading_category": "Final Exam"},
+        {"title": "Project", "type": "project", "counts_toward_grade": True, "date_text": "Week 10"},
+        {"title": "Practice quiz", "type": "quiz", "counts_toward_grade": False, "date_text": "December 1, 2026"},
     ],
     "grading": [{"category": "Final Exam", "weight": 45}, {"category": "Project", "weight": None}],
     "policies": {"late_work": "Late work loses 10 points per day"},
@@ -83,7 +85,10 @@ class WorkspaceTest(unittest.IsolatedAsyncioTestCase):
         schema = config["responseJsonSchema"]
         self.assertIn("events", schema["properties"])
         self.assertNotIn("maxItems", schema["properties"]["events"])
-        self.assertNotIn("course_id", schema["$defs"]["Event"]["properties"])
+        event = schema["$defs"]["ExtractedEvent"]
+        self.assertNotIn("course_id", event["properties"])
+        self.assertIn("counts_toward_grade", event["required"])
+        self.assertNotIn("important_date", event["properties"]["type"]["enum"])
         self.assertNotIn("maximum", schema["$defs"]["Grading"]["properties"]["weight"]["anyOf"][0])
         return Mock(status_code=200, json=lambda: result_for(GEMINI_BODY))
 
@@ -116,6 +121,7 @@ class WorkspaceTest(unittest.IsolatedAsyncioTestCase):
         status, draft = await self.upload()
         self.assertEqual(status, 201, draft)
         self.assertEqual(draft["status"], "extracted")
+        self.assertEqual([event["title"] for event in draft["syllabus"]["events"]], ["Final exam", "Project"])
         self.assertEqual(self.uploads, [PDF])
         course_id = draft["upload_id"]
         with closing(sqlite3.connect(self.path)) as db:
