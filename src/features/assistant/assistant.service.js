@@ -73,7 +73,7 @@ export async function askAssistant(question, { courses, assessments }, syllabi) 
         `What I can do: **${next.title}** is due ${fmtShort(parseISO(next.date))}${next.estimated ? ' (estimated)' : ''} and is worth **${gradeImpact(next, c, assessments).toFixed(1)}%** of your ${c.short} grade. Start by ${fmtShort(start)}${c.officeHours ? `; office hours are ${c.officeHours}` : ''}.`,
       )
     }
-    return { text: lines.join('\n'), sources: [...strict.map((x) => src(x, 'AI policy')), ...(next ? ['Calendar · ASSESSMENTS'] : [])] }
+    return { text: lines.join('\n'), sources: [...strict.map((x) => src(x, 'AI policy')), ...(next ? ['Calendar'] : [])] }
   }
 
   if (/\b(ai|llm|llms|chatgpt|gpt|claude|copilot|generative)\b/.test(q)) {
@@ -121,7 +121,7 @@ export async function askAssistant(question, { courses, assessments }, syllabi) 
     })
     const gpa = semesterGPA(courses, g)
     if (!mentioned.length && gpa != null) lines.push(`Projected semester GPA: **${gpa.toFixed(2)}**`)
-    return { text: lines.join('\n'), sources: ['Grades · V_COURSE_GRADES'] }
+    return { text: lines.join('\n'), sources: ['Grades'] }
   }
 
   if (/office|instructor|professor|prof\b|email|contact|teacher/.test(q)) {
@@ -146,7 +146,7 @@ export async function askAssistant(question, { courses, assessments }, syllabi) 
           return `**${a.title}** — ${when}${a.estimated ? ' · estimated, confirm on your course site' : ''}`
         })
         .join('\n'),
-      sources: ['Calendar · ASSESSMENTS'],
+      sources: ['Calendar'],
     }
   }
 

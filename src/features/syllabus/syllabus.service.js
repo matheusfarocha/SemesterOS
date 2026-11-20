@@ -25,6 +25,10 @@ export function confirmSyllabus(uploadId, syllabus) {
   })
 }
 
+export function resetSyllabi() {
+  return request('/syllabus', { method: 'DELETE' })
+}
+
 export async function loadConfirmedSyllabi(signal) {
   const options = { signal }
   const courses = await request('/courses', options)

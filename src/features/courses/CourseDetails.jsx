@@ -52,7 +52,7 @@ export default function CourseDetails({ course: c, summary: s, assessments }) {
         <div className="details-actions">
           <button
             className="btn ghost small danger"
-            onClick={() => confirm(c.uploadId ? `Hide ${c.code} in this browser? It stays saved in Snowflake.` : `Remove ${c.code}?`) && dispatch({ type: 'removeCourse', id: c.id })}
+            onClick={() => confirm(c.uploadId ? `Hide ${c.code} in this browser?` : `Remove ${c.code}?`) && dispatch({ type: 'removeCourse', id: c.id })}
           >
             {c.uploadId ? 'Hide' : 'Remove'}
           </button>

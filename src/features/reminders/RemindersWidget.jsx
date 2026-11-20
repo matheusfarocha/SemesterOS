@@ -4,7 +4,6 @@ import { Bell } from 'lucide-react'
 import { useStore } from '@/store/store'
 import { generateReminders } from './reminders.service'
 import ReminderItem from './ReminderItem'
-import { Snow } from '@/shared/ui/ui'
 import './reminders.css'
 
 /** Compact reminders card shown on the dashboard. Full list lives on /reminders. */
@@ -30,7 +29,6 @@ export default function RemindersWidget({ limit = 4 }) {
           View all {reminders.length}
         </Link>
       )}
-      <Snow>Tasks + SQL</Snow>
     </section>
   )
 }

@@ -1,9 +1,22 @@
 import { createContext, useContext, useEffect, useReducer, useState } from 'react'
 import { seed, seedSyllabi } from '@/store/seed'
-import { loadConfirmedSyllabi, toStoreRows } from '@/features/syllabus/syllabus.service'
+import { loadConfirmedSyllabi, resetSyllabi, toStoreRows } from '@/features/syllabus/syllabus.service'
 
 const KEY = 'semesteros:v3' // bump when the data shape changes
 const initial = () => ({ ...structuredClone(seed), syllabi: { ...seedSyllabi } })
+
+async function resetDemoData() {
+  await resetSyllabi()
+  localStorage.setItem(KEY, JSON.stringify({
+    user: { ...seed.user },
+    courses: [],
+    assessments: [],
+    events: [],
+    tasks: [],
+    syllabi: {},
+  }))
+  window.location.reload()
+}
 
 function load() {
   try {
@@ -99,8 +112,6 @@ function reducer(state, action) {
       }
     case 'setUser':
       return { ...state, user: { ...state.user, ...action.patch } }
-    case 'reset':
-      return initial()
     default:
       return state
   }
@@ -130,7 +141,7 @@ export function StoreProvider({ children }) {
     } catch {}
   }, [state])
   return (
-    <Ctx.Provider value={{ state, dispatch, syncError, refreshSyllabi: () => setSyncAttempt((attempt) => attempt + 1) }}>
+    <Ctx.Provider value={{ state, dispatch, resetDemoData, syncError, refreshSyllabi: () => setSyncAttempt((attempt) => attempt + 1) }}>
       {children}
     </Ctx.Provider>
   )

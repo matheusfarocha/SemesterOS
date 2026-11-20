@@ -10,6 +10,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import Mock, patch
 
 from . import main, workspace
+from .snowflake_db import STAGE
 
 PDF = b"%PDF-1.4\n"
 GEMINI_BODY = {
@@ -36,6 +37,9 @@ class SnowflakeTestCursor:
         if sql.startswith("PUT "):
             self.uploads.append(options["file_stream"].read())
             self.result = iter([{"status": "UPLOADED"}])
+        elif sql == f"REMOVE {STAGE}":
+            self.uploads.clear()
+            self.result = iter([])
         else:
             sql = (sql.replace(workspace.UPLOADS, "syllabus_uploads").replace("%s", "?")
                    .replace("PARSE_JSON(?)", "?").replace("TO_JSON(CONFIRMED)", "CONFIRMED")
@@ -48,6 +52,9 @@ class SnowflakeTestCursor:
 
     def __iter__(self):
         return iter(self.result)
+
+    def fetchall(self):
+        return list(self.result)
 
 
 class WorkspaceTest(unittest.IsolatedAsyncioTestCase):
@@ -156,6 +163,24 @@ class WorkspaceTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.uploads, [])
         with closing(sqlite3.connect(self.path)) as db:
             self.assertEqual(db.execute("SELECT COUNT(*) FROM syllabus_uploads").fetchone()[0], 0)
+
+    async def test_reset_removes_confirmed_courses_drafts_and_staged_pdfs(self):
+        _, confirmed = await self.upload()
+        _, draft = await self.upload()
+        course_id = confirmed["upload_id"]
+        payload = json.dumps({"upload_id": course_id, "syllabus": confirmed["syllabus"]}).encode()
+        self.assertEqual((await self.request("POST", "/api/syllabus/confirm", payload, "application/json"))[0], 200)
+        self.assertEqual(len(self.uploads), 2)
+
+        for _ in range(2):
+            self.assertEqual(await self.request("DELETE", "/api/syllabus"), (200, {"status": "reset"}))
+        self.assertEqual(self.uploads, [])
+        self.assertEqual(await self.request("GET", "/api/courses"), (200, []))
+        self.assertEqual(await self.request("GET", "/api/events"), (200, []))
+        self.assertEqual((await self.request("GET", f"/api/courses/{course_id}/grading"))[0], 404)
+        payload = json.dumps({"upload_id": draft["upload_id"], "syllabus": draft["syllabus"]}).encode()
+        self.assertEqual((await self.request("POST", "/api/syllabus/confirm", payload, "application/json"))[0], 404)
+        self.assertEqual((await self.upload())[0], 201)
 
     async def test_missing_gemini_key_is_reported_without_upload(self):
         with patch.dict(os.environ, {"GEMINI_API_KEY": ""}):

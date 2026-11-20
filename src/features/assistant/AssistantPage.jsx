@@ -1,6 +1,6 @@
 import { RotateCcw } from 'lucide-react'
 import { useStore } from '@/store/store'
-import { PageHeader, Snow } from '@/shared/ui/ui'
+import { PageHeader } from '@/shared/ui/ui'
 import { useAssistant } from './useAssistant'
 import ChatThread from './ChatThread'
 import './assistant.css'
@@ -30,7 +30,7 @@ export default function AssistantPage() {
                 <i className="cdot" style={{ background: c.color }} />
                 <div>
                   <strong>{c.code} syllabus</strong>
-                  <span className="muted small">{(state.syllabi[c.id] ?? '').split(/(?<=\.)\s+/).filter(Boolean).length} chunks indexed</span>
+                  <span className="muted small">{(state.syllabi[c.id] ?? '').split(/(?<=\.)\s+/).filter(Boolean).length} syllabus excerpts</span>
                 </div>
               </li>
             ))}
@@ -38,11 +38,10 @@ export default function AssistantPage() {
               <i className="cdot" style={{ background: 'var(--accent)' }} />
               <div>
                 <strong>Grades & calendar</strong>
-                <span className="muted small">{state.assessments.length} assessments via SQL</span>
+                <span className="muted small">{state.assessments.length} assessments</span>
               </div>
             </li>
           </ul>
-          <Snow>Cortex Search · SYLLABUS_SEARCH</Snow>
         </aside>
       </div>
     </>

@@ -38,6 +38,7 @@ export default function Calendar() {
   }, [state.events])
 
   const courseOf = (id) => state.courses.find((c) => c.id === id)
+  const undatedCount = state.assessments.filter((a) => a.score == null && (!a.date || a.undated)).length
 
   const step = (dir) => {
     if (view === 'Week') setWeekCursor(addDays(weekCursor, 7 * dir))
@@ -116,6 +117,12 @@ export default function Calendar() {
         </div>
       </header>
 
+      {view !== 'Agenda' && undatedCount > 0 && (
+        <p className="muted small pad">
+          {undatedCount} {undatedCount === 1 ? 'event needs' : 'events need'} an exact date.{' '}
+          <button className="link-btn" onClick={() => setView('Agenda')}>View in Agenda</button>
+        </p>
+      )}
       <div className="cal-body">
         {view === 'Month' && (
           <MonthView
@@ -249,7 +256,7 @@ function MonthView({ cursor, byDate, eventsByDate, wl, courseOf, selected, onSel
           const past = iso(week[6]) < iso(TODAY)
           const tip = `${sum.label} week · ${sum.score.toFixed(0)} grade-points${sum.top ? ` · mostly ${sum.prepFor ? `prep for ${sum.top.title}` : sum.top.title}` : ''}`
           return (
-            <div key={iso(week[0])} className={`week-row ${current ? `current l-${sum.level}` : ''} ${past ? 'past' : ''}`}>
+            <div key={iso(week[0])} className={`week-row l-${sum.level} ${current ? 'current' : ''} ${past ? 'past' : ''}`}>
               <button className={`wk-label l-${sum.level}`} title={tip} aria-label={`Week of ${fmtMonthDay(week[0])}: ${tip}. Show details`} onClick={() => onWhy(week[0])}>
                 <i className="lvl-dot" />
                 <span className="wk-word">{sum.label}</span>
@@ -259,14 +266,15 @@ function MonthView({ cursor, byDate, eventsByDate, wl, courseOf, selected, onSel
                 const key = iso(d)
                 const items = byDate[key] ?? []
                 const out = d.getMonth() !== cursor.getMonth()
+                const isToday = sameDay(d, TODAY)
                 return (
                   <div
                     key={key}
-                    className={`day ${out ? 'out' : ''} ${sameDay(d, TODAY) ? 'today' : ''} ${selected === key ? 'selected' : ''}`}
+                    className={`day ${out ? 'out' : ''} ${isToday ? 'today' : ''} ${selected === key ? 'selected' : ''}`}
                     onClick={() => onSelect(key)}
                   >
                     <div className="day-head">
-                      <time className="num" dateTime={key}>
+                      <time className="num" dateTime={key} aria-current={isToday ? 'date' : undefined}>
                         {d.getDate()}
                       </time>
                       <EventLabels events={eventsByDate[key] ?? []} />

@@ -6,7 +6,7 @@ import { useWorkload } from '@/features/workload/useWorkload'
 import { weekLoad } from '@/features/workload/workload.service'
 import WorkloadBreakdown from '@/features/workload/WorkloadBreakdown'
 import { TODAY, addDays, startOfWeek, fmtMonthDay, iso } from '@/shared/lib/dates'
-import { PageHeader, Snow } from '@/shared/ui/ui'
+import { PageHeader } from '@/shared/ui/ui'
 import { useSlidingPill } from '@/shared/ui/useSlidingPill'
 import './reminders.css'
 
@@ -54,7 +54,6 @@ export default function RemindersPage() {
             ))}
             {!shown.length && <li className="muted">Nothing here. Nice.</li>}
           </ul>
-          <Snow>Task NIGHTLY_REMINDERS → REMINDERS table</Snow>
         </section>
 
         <section className="card side-card">
@@ -76,7 +75,6 @@ export default function RemindersPage() {
           <div className="wl-card">
             <WorkloadBreakdown info={weeks[sel]} thresholds={wl.thresholds} />
           </div>
-          <Snow>SQL · V_DAILY_LOAD</Snow>
         </section>
       </div>
     </>

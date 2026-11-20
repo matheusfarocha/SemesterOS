@@ -4,7 +4,7 @@ import { Upload, Megaphone } from 'lucide-react'
 import { useStore } from '@/store/store'
 import { courseStatus, courseGrade, semesterGPA } from '@/features/grades/grades.service'
 import { TODAY, parseISO, daysBetween } from '@/shared/lib/dates'
-import { PageHeader, Snow } from '@/shared/ui/ui'
+import { PageHeader } from '@/shared/ui/ui'
 import PasteUpdateModal from '@/features/updates/PasteUpdateModal'
 import { courseUnknowns } from './unknowns.service'
 import CourseStrip from './CourseStrip'
@@ -61,7 +61,6 @@ export default function CoursesPage() {
         </div>
       )}
 
-      <Snow>SQL + Tables · COURSES, GRADE_CATEGORIES, ASSESSMENTS</Snow>
       {pasting && <PasteUpdateModal onClose={() => setPasting(false)} />}
     </>
   )

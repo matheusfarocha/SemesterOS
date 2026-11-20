@@ -91,7 +91,7 @@ class Confirm(Record):
     syllabus: Syllabus
 
 
-def normalize_date(raw):
+def normalize_date(raw, semester=None):
     if not raw:
         return None
     if re.fullmatch(r"\d{4}-\d{2}-\d{2}", raw):
@@ -99,20 +99,49 @@ def normalize_date(raw):
             return dt.date.fromisoformat(raw)
         except ValueError:
             return None
-    # A slash date can only be normalized if its order and full year are clear.
-    if match := re.fullmatch(r"(\d{1,2})/(\d{1,2})/(\d{4})", raw):
-        left, right, year = map(int, match.groups())
-        if left > 12 or right > 12 or left == right:
-            try:
-                return dt.date(year, right, left) if left > 12 else dt.date(year, left, right)
-            except ValueError:
-                return None
+    if date := normalize_full_slash_date(raw):
+        return date
     for pattern in ("%B %d, %Y", "%b %d, %Y", "%B %d %Y", "%b %d %Y", "%d %B %Y", "%d %b %Y"):
         try:
             return dt.datetime.strptime(raw, pattern).date()
         except ValueError:
             continue
-    return None
+    return normalize_term_date(raw, semester)
+
+
+def normalize_full_slash_date(raw):
+    match = re.fullmatch(r"(\d{1,2})/(\d{1,2})/(\d{4})", raw or "")
+    if not match:
+        return None
+    month, day, year = map(int, match.groups())
+    # Use month/day/year for U.S. syllabi. A first number above 12 indicates day/month/year.
+    if month > 12:
+        month, day = day, month
+    try:
+        return dt.date(year, month, day)
+    except ValueError:
+        return None
+
+
+def normalize_term_date(raw, semester):
+    term = re.fullmatch(r"(?:spring|summer|fall|autumn|winter)\s+(\d{4})", semester or "", re.IGNORECASE)
+    match = re.fullmatch(r"(\d{1,2})/(\d{1,2})(?:\s*\(([a-z]{2,9})\))?", raw, re.IGNORECASE)
+    if not term or not match:
+        return None
+
+    year = int(term[1])
+    left, right = int(match[1]), int(match[2])
+    weekday = (match[3] or "").lower()
+    weekdays = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+    candidates = set()
+    for month, day in ((left, right), (right, left)):
+        try:
+            date = dt.date(year, month, day)
+        except ValueError:
+            continue
+        if weekdays[date.weekday()].startswith(weekday):
+            candidates.add(date)
+    return candidates.pop() if len(candidates) == 1 else None
 
 
 def normalize_time(raw):
@@ -131,7 +160,7 @@ def decode_extraction(result, course_id):
         Event(
             **event.model_dump(exclude={"counts_toward_grade", "course_id", "date", "time"}),
             course_id=course_id,
-            date=normalize_date(event.date_text),
+            date=normalize_date(event.date_text, extracted.course.semester),
             time=normalize_time(event.time_text),
         )
         for event in extracted.events if event.counts_toward_grade

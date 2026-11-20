@@ -40,8 +40,6 @@ export function RichText({ text }) {
   ))
 }
 
-export const Snow = ({ children }) => <span className="snow-tag" title="Snowflake service backing this feature">❄ {children}</span>
-
 export function PageHeader({ title, sub, children }) {
   return (
     <div className="page-head">

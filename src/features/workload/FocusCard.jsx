@@ -2,7 +2,6 @@ import { useMemo } from 'react'
 import { Target, Plus, Check } from 'lucide-react'
 import { useStore } from '@/store/store'
 import { TODAY, iso, parseISO, fmtShort } from '@/shared/lib/dates'
-import { Snow } from '@/shared/ui/ui'
 import { useWorkload } from './useWorkload'
 import { focusThisWeek } from './workload.service'
 import './workload.css'
@@ -59,7 +58,6 @@ export default function FocusCard({ limit = 3 }) {
           )
         })}
       </ul>
-      <Snow>Snowpark · RECOMMEND_FOCUS()</Snow>
     </section>
   )
 }

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Upload, Loader2, Trash2 } from 'lucide-react'
 import { useStore } from '@/store/store'
 import { extractSyllabus, confirmSyllabus, toStoreRows } from './syllabus.service'
-import { TypeIcon, Snow } from '@/shared/ui/ui'
+import { TypeIcon } from '@/shared/ui/ui'
 
 const COURSE_FIELDS = {
   code: 'Course code', name: 'Course name', professor: 'Instructor', email: 'Email', contact: 'Other contact details',
@@ -45,7 +45,7 @@ export default function SyllabusUploader({ onDone }) {
 
   async function extract() {
     setError('')
-    setStatus('Extracting syllabus with Gemini and staging the PDF in Snowflake…')
+    setStatus('Extracting syllabus details…')
     try {
       const result = await extractSyllabus(file)
       setUploadId(result.upload_id)
@@ -60,7 +60,7 @@ export default function SyllabusUploader({ onDone }) {
   async function save(event) {
     event.preventDefault()
     setError('')
-    setStatus('Saving confirmed syllabus to Snowflake…')
+    setStatus('Saving syllabus…')
     try {
       const confirmed = await confirmSyllabus(uploadId, draft)
       const rows = toStoreRows(confirmed)
@@ -114,8 +114,6 @@ export default function SyllabusUploader({ onDone }) {
             <span className="muted">{file?.name ?? 'PDF up to 10 MB'}</span>
           </div>
           <div className="modal-actions">
-            <span className="grow" />
-            <Snow>Snowflake storage · Gemini extraction</Snow>
             <button className="btn primary" disabled={!file} onClick={extract}>Extract with AI</button>
           </div>
         </>

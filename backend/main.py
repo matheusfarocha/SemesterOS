@@ -1,5 +1,6 @@
 import logging
 from pathlib import PurePosixPath
+from threading import Lock
 from uuid import UUID, uuid4
 
 from fastapi import FastAPI, HTTPException, Request
@@ -17,17 +18,19 @@ from .syllabus import Confirm, MAX_PDF_BYTES
 app = FastAPI(title="SemesterOS API")
 log = logging.getLogger(__name__)
 MAX_REQUEST_BYTES = MAX_PDF_BYTES + 64 * 1024
+upload_stage_lock = Lock()
 
 
 @app.exception_handler(ConfigurationError)
 async def missing_settings(request, error):
-    return JSONResponse(status_code=503, content={"detail": str(error)})
+    log.error("Backend configuration error. %s", error)
+    return JSONResponse(status_code=503, content={"detail": "The server is missing required configuration."})
 
 
 @app.exception_handler(SnowflakeError)
 async def snowflake_error(request, error):
     log.error("Snowflake session failed. %s", describe_error(error))
-    return JSONResponse(status_code=503, content={"detail": "Snowflake is unavailable. Check the server configuration and try again."})
+    return JSONResponse(status_code=503, content={"detail": "Course storage is unavailable. Try again."})
 
 
 class UploadTooLarge(MultiPartException):
@@ -91,15 +94,22 @@ def extract_upload(stream, original_filename, size):
         raise HTTPException(422, "Gemini could not extract valid syllabus information from this PDF.") from error
 
     stream.seek(0)
-    with cursor() as db:
+    with upload_stage_lock, cursor() as db:
         try:
             filename = stage_pdf(db, stream, file_id)
         except (SnowflakeError, ValueError) as error:
             log_snowflake_step("PDF staging", upload_id, error)
-            raise HTTPException(502, "Snowflake could not stage the PDF.") from error
+            raise HTTPException(502, "We couldn’t store the PDF. Try again.") from error
 
         workspace.register_upload(db, upload_id, original_filename, filename, size)
     return {"upload_id": upload_id, "status": "extracted", "syllabus": syllabus}
+
+
+@app.delete("/api/syllabus")
+def reset_syllabi():
+    with upload_stage_lock, cursor() as db:
+        workspace.reset_syllabi(db)
+    return {"status": "reset"}
 
 
 def log_snowflake_step(step, upload_id, error):

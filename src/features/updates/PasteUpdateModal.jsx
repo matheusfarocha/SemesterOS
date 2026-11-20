@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Loader2, Megaphone } from 'lucide-react'
 import { useStore } from '@/store/store'
-import { Modal, Snow } from '@/shared/ui/ui'
+import { Modal } from '@/shared/ui/ui'
 import { analyzeUpdate, detectCourse, describe, toAction, UPDATE_SAMPLES } from './updates.service'
 import './updates.css'
 
@@ -85,8 +85,6 @@ export default function PasteUpdateModal({ onClose }) {
           </div>
           {text && !detected && !courseId && <p className="warn small">Couldn't tell which course this is about. Pick one, or upload its syllabus first.</p>}
           <div className="modal-actions">
-            <Snow>Cortex COMPLETE</Snow>
-            <span className="grow" />
             <button className="btn primary" disabled={!text.trim() || !course || busy} onClick={analyze}>
               {busy ? <Loader2 size={16} className="spin" /> : null} Find changes
             </button>

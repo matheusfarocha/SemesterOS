@@ -3,7 +3,6 @@
 .chat { position: fixed; right: 38px; bottom: 116px; width: 410px; height: min(600px, calc(100vh - 160px)); z-index: 40; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5); }
 .chat-head { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
 .chat-head div { flex: 1; display: flex; flex-direction: column; }
-.chat-head .snow-tag { margin-top: 4px; }
 .chat-body { flex: 1; overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
 .msg { max-width: 88%; padding: 10px 13px; border-radius: 12px; line-height: 1.45; font-size: 14px; display: flex; flex-direction: column; gap: 4px; }
 .msg.bot { background: var(--panel-2); align-self: flex-start; border-top-left-radius: 4px; }

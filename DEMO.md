@@ -1,6 +1,6 @@
 # SemesterOS: demo script (~4 min)
 
-Setup: `npm run dev`, open http://localhost:5173, then gear icon → **Reset demo data**. "Today" is pinned to Fri Nov 20, 2026.
+Setup: `npm run dev`, then open http://localhost:5173 in a fresh browser profile to load the built-in sample courses. "Today" is pinned to Fri Nov 20, 2026.
 
 ## 1. The problem (15s)
 "Every class hands you a syllabus with different rules, and half the dates say 'Week 5' or 'TBD'. Students track it all in their heads."
