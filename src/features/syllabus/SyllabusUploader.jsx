@@ -1,11 +1,23 @@
 import { useState } from 'react'
-import { Upload, Check, Loader2, Trash2, FileText } from 'lucide-react'
+import { Upload, Check, Loader2, Trash2, FileText, AlertTriangle, ShieldAlert, CalendarDays, XOctagon, Scale } from 'lucide-react'
 import { useStore } from '@/store/store'
-import { extractSyllabus, toCourseRows, SAMPLE_SYLLABUS } from './syllabus.service'
+import { extractSyllabus, extractSyllabusPdf, toCourseRows, SAMPLES } from './syllabus.service'
 import { parseISO, fmtShort } from '@/shared/lib/dates'
 import { TypeIcon, Snow } from '@/shared/ui/ui'
 
-const STEPS = ['Parsing document (CORTEX.PARSE_DOCUMENT)', 'Extracting deadlines & policies (CORTEX.COMPLETE)', 'Writing to COURSES / ASSESSMENTS']
+const TEXT_STEPS = ['Parsing document', 'Extracting deadlines & policies', 'Resolving week numbers to dates']
+const PDF_STEPS = ['Uploading PDF', 'Claude is reading the syllabus (structured extraction)', 'Resolving week numbers to dates']
+
+const toBase64 = (file) =>
+  new Promise((resolve, reject) => {
+    const r = new FileReader()
+    r.onload = () => resolve(String(r.result).split(',')[1])
+    r.onerror = reject
+    r.readAsDataURL(file)
+  })
+
+// Syllabus text kept for the assistant's search when the source was a PDF
+const factsText = (ex) => [ex.attendance.policy, ex.latePolicy, ex.aiPolicy, ...(ex.rules ?? [])].filter(Boolean).join(' ')
 
 /** Upload → extract → review → save. Rendered inline on the Syllabus page. */
 export default function SyllabusUploader({ onDone }) {
@@ -15,26 +27,42 @@ export default function SyllabusUploader({ onDone }) {
   const [step, setStep] = useState(-1)
   const [ex, setEx] = useState(null)
   const [drag, setDrag] = useState(false)
+  const [pdf, setPdf] = useState(null) // base64 of an uploaded PDF → AI path
+  const [error, setError] = useState(null)
+  const STEPS = pdf ? PDF_STEPS : TEXT_STEPS
 
   const readFile = async (file) => {
     if (!file) return
     setFileName(file.name)
-    if (/\.(txt|md)$/i.test(file.name) || file.type.startsWith('text/')) setText(await file.text())
-    else setText(`[${file.name}]\nPDF/DOCX parsing runs in Snowflake (PARSE_DOCUMENT). For the prototype, paste the syllabus text here or load the sample.`)
+    setError(null)
+    if (/\.pdf$/i.test(file.name) || file.type === 'application/pdf') {
+      setPdf(await toBase64(file))
+      setText('')
+    } else {
+      setPdf(null)
+      setText(await file.text())
+    }
   }
 
   const run = async () => {
-    const res = await extractSyllabus(text, setStep)
-    setEx(res)
-    setStep(3)
+    setError(null)
+    try {
+      const res = pdf ? await extractSyllabusPdf(pdf, setStep) : await extractSyllabus(text, setStep)
+      setEx(res)
+      setStep(3)
+    } catch (e) {
+      setError(e.message)
+      setStep(-1)
+    }
   }
 
   const save = () => {
-    const { course, assessments } = toCourseRows(ex, state.courses.length)
-    dispatch({ type: 'addCourse', course, assessments, syllabus: text })
+    const { course, assessments, events } = toCourseRows(ex, state.courses.length)
+    dispatch({ type: 'addCourse', course, assessments, events, syllabus: text || factsText(ex) })
     onDone?.(course)
     setStep(-1)
     setText('')
+    setPdf(null)
     setFileName(null)
     setEx(null)
   }
@@ -66,22 +94,33 @@ export default function SyllabusUploader({ onDone }) {
                 <input type="file" hidden accept=".txt,.md,.pdf,.docx" onChange={(e) => readFile(e.target.files[0])} />
               </label>
             </p>
-            <span className="muted">{fileName ?? 'PDF, DOCX or text'}</span>
+            <span className="muted">{pdf ? `${fileName} · ready for AI extraction` : fileName ?? 'PDF (read by Claude) or text'}</span>
           </div>
-          <textarea className="syllabus-text" rows={10} value={text} onChange={(e) => setText(e.target.value)} placeholder="…or paste syllabus text" />
+          {!pdf && <textarea className="syllabus-text" rows={10} value={text} onChange={(e) => setText(e.target.value)} placeholder="…or paste syllabus text" />}
+          {error && <p className="upload-error">{error}</p>}
           <div className="modal-actions">
-            <button
-              className="btn ghost"
-              onClick={() => {
-                setText(SAMPLE_SYLLABUS)
-                setFileName('PHYS2101_syllabus.pdf')
-              }}
-            >
-              <FileText size={16} /> Load sample syllabus
-            </button>
+            {SAMPLES.map((s) => (
+              <button
+                key={s.id}
+                className="btn ghost"
+                onClick={() => {
+                  setPdf(null)
+                  setError(null)
+                  setText(s.text)
+                  setFileName(s.file)
+                }}
+              >
+                <FileText size={16} /> {s.label}
+              </button>
+            ))}
             <span className="grow" />
-            <Snow>Cortex AI</Snow>
-            <button className="btn primary" disabled={!text.trim()} onClick={run}>
+            {pdf && (
+              <button className="btn ghost" onClick={() => { setPdf(null); setFileName(null) }}>
+                Remove PDF
+              </button>
+            )}
+            <Snow>{pdf ? 'Claude API · PDF' : 'Text parser'}</Snow>
+            <button className="btn primary" disabled={!pdf && !text.trim()} onClick={run}>
               Extract with AI
             </button>
           </div>
@@ -104,6 +143,31 @@ export default function SyllabusUploader({ onDone }) {
           <p className="muted">
             Review what was extracted · confidence <strong className="accent">{Math.round(ex.confidence * 100)}%</strong>
           </p>
+          {ex.problems.length > 0 && (
+            <div className="problems">
+              <strong>
+                <XOctagon size={16} /> We couldn't read parts of this syllabus
+              </strong>
+              <ul>
+                {ex.problems.map((a) => (
+                  <li key={a}>{a}</li>
+                ))}
+              </ul>
+              <span className="small">With Snowflake Cortex, layout-aware parsing handles these. For now, fix them below or add them later.</span>
+            </div>
+          )}
+          {ex.ambiguities.length > 0 && (
+            <div className="ambiguities">
+              <strong>
+                <AlertTriangle size={16} /> {ex.ambiguities.length} thing{ex.ambiguities.length > 1 ? 's' : ''} to double-check
+              </strong>
+              <ul>
+                {ex.ambiguities.map((a) => (
+                  <li key={a}>{a}</li>
+                ))}
+              </ul>
+            </div>
+          )}
           <div className="review-grid">
             <label className="field">
               <span>Course code</span>
@@ -149,6 +213,40 @@ export default function SyllabusUploader({ onDone }) {
           </p>
           <h4>Late work</h4>
           <p className="policy">{ex.latePolicy}</p>
+          {ex.aiPolicy && (
+            <>
+              <h4>
+                <ShieldAlert size={16} /> AI policy
+              </h4>
+              <p className="policy ai-policy">{ex.aiPolicy}</p>
+            </>
+          )}
+          {ex.rules.length > 0 && (
+            <>
+              <h4>
+                <Scale size={16} /> Rules that can cost you points ({ex.rules.length})
+              </h4>
+              <ul className="rules-list">
+                {ex.rules.map((r) => (
+                  <li key={r}>{r}</li>
+                ))}
+              </ul>
+            </>
+          )}
+          {ex.events.length > 0 && (
+            <>
+              <h4>
+                <CalendarDays size={16} /> Important dates ({ex.events.length})
+              </h4>
+              <div className="event-chips">
+                {ex.events.map((e) => (
+                  <span key={e.date + e.title} className={`cal-event k-${e.kind}`}>
+                    {fmtShort(parseISO(e.date)).slice(5)} · {e.title}
+                  </span>
+                ))}
+              </div>
+            </>
+          )}
 
           <h4>Deadlines found ({ex.assessments.length})</h4>
           <ul className="found">
@@ -157,9 +255,19 @@ export default function SyllabusUploader({ onDone }) {
                 <span className={`type-pill t-${a.type}`}>
                   <TypeIcon type={a.type} />
                 </span>
-                <span className="grow">{a.title}</span>
+                <span className="grow">
+                  {a.title}
+                  {a.source && <span className="muted small found-src">{a.source}</span>}
+                </span>
                 <span className="muted">{a.categoryName ?? 'Uncategorized'}</span>
-                <span>{fmtShort(parseISO(a.date))}</span>
+                {a.undated ? (
+                  <span className="est-tag">no date yet</span>
+                ) : (
+                  <span>
+                    {fmtShort(parseISO(a.date))}
+                    {a.estimated && <span className="est-tag">estimated</span>}
+                  </span>
+                )}
                 <button className="icon-btn tiny" onClick={() => setEx({ ...ex, assessments: ex.assessments.filter((_, j) => j !== i) })} aria-label="Remove">
                   <Trash2 size={14} />
                 </button>
@@ -172,7 +280,7 @@ export default function SyllabusUploader({ onDone }) {
             </button>
             <span className="grow" />
             <button className="btn primary" onClick={save}>
-              Add course to semester
+              {ex.problems.length ? 'Add anyway' : 'Add course to semester'}
             </button>
           </div>
         </div>

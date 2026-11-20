@@ -7,3 +7,9 @@
 .tab.active { background: #4c3a8a; color: white; }
 .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; background: var(--panel-2); border-radius: 10px; }
 .settings-row div { display: flex; flex-direction: column; gap: 2px; }
+@media (max-width: 720px) {
+  .topnav { gap: 4px; }
+  .brand { font-size: 16px; }
+  .tabs { gap: 2px; }
+  .tab { padding: 8px 9px; }
+}

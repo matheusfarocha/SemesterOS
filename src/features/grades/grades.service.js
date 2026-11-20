@@ -82,3 +82,21 @@ export function semesterGPA(courses, gradeById) {
   }
   return cr ? pts / cr : null
 }
+
+/** Turns the math into one status + one plain sentence. */
+export function gradeVerdict(g, need, target) {
+  const left = g.remaining.length
+  if (g.current == null) return { tone: 'muted', label: 'No grades yet', text: 'Enter a score below to see where you stand.' }
+  if (need == null) return { tone: 'muted', label: 'Complete', text: 'Everything is graded.' }
+  if (need <= 0) return { tone: 'ok', label: 'Locked in', text: `You'll reach ${target}% even with zeros on the rest.` }
+  if (need > 100) return { tone: 'bad', label: 'Out of reach', text: `You'd need ${need.toFixed(0)}% on everything left. Try a lower goal.` }
+  if (need <= g.current) return { tone: 'ok', label: 'On track', text: `Average ${need.toFixed(0)}% on the ${left} thing${left > 1 ? 's' : ''} left. You're doing better than that now.` }
+  return { tone: 'warn', label: 'Stretch', text: `You need ${need.toFixed(0)}% on the ${left} thing${left > 1 ? 's' : ''} left, higher than your ${g.current.toFixed(0)}% so far.` }
+}
+
+/** Status for a course in one call (used by Courses and Grades). */
+export function courseStatus(course, assessments) {
+  const g = courseGrade(course, assessments)
+  const need = g.current == null ? null : requiredScore(course, assessments, course.target)
+  return { g, need, ...gradeVerdict(g, need, course.target) }
+}

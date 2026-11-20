@@ -1,0 +1,12 @@
+.upd-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.upd-course { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.upd-quote { margin: 0; padding: 10px 14px; border-left: 3px solid var(--accent); background: var(--panel-2); border-radius: 0 8px 8px 0; color: #c9ccd6; font-size: 14px; }
+.upd-changes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.upd-changes label { display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: var(--panel-2); border-radius: 8px; cursor: pointer; }
+.upd-changes input { accent-color: var(--accent); width: 16px; height: 16px; }
+.upd-kind { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; min-width: 76px; text-align: center; }
+.upd-kind.k-move { background: rgba(59, 130, 246, 0.18); color: #93c5fd; }
+.upd-kind.k-confirm { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+.upd-kind.k-add { background: rgba(139, 92, 246, 0.2); color: #c4b5fd; }
+.upd-kind.k-remove { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+.upd-kind.k-event { background: var(--line); color: var(--muted); }

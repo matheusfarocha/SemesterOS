@@ -27,10 +27,6 @@ export default function SettingsModal({ onClose }) {
         <span>Your name</span>
         <input value={state.user.name} onChange={(e) => dispatch({ type: 'setUser', patch: { name: e.target.value } })} />
       </label>
-      <label className="field">
-        <span>Weekly study hours available</span>
-        <input type="number" value={state.user.weeklyStudyHours} onChange={(e) => dispatch({ type: 'setUser', patch: { weeklyStudyHours: Number(e.target.value) } })} />
-      </label>
       <div className="modal-actions">
         <button
           className="btn ghost danger"

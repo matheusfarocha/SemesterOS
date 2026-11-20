@@ -1,3 +1,5 @@
 node_modules
 dist
 .env
+# Real syllabi have real names/emails; keep them local
+samples/private/

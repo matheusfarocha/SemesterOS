@@ -1,92 +1,64 @@
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Upload, Mail, Clock, MapPin, Minus, Plus, Trash2 } from 'lucide-react'
+import { Upload, Megaphone } from 'lucide-react'
 import { useStore } from '@/store/store'
-import { courseGrade, letter } from '@/features/grades/grades.service'
-import { TODAY, parseISO, daysBetween, fmtShort, relDays } from '@/shared/lib/dates'
-import { PageHeader, Snow, TypeIcon } from '@/shared/ui/ui'
+import { courseStatus } from '@/features/grades/grades.service'
+import { TODAY, parseISO, daysBetween } from '@/shared/lib/dates'
+import { PageHeader, Snow } from '@/shared/ui/ui'
+import PasteUpdateModal from '@/features/updates/PasteUpdateModal'
+import { courseUnknowns } from './unknowns.service'
+import CourseStrip from './CourseStrip'
+import CourseDetails from './CourseDetails'
 import './courses.css'
 
 export default function CoursesPage() {
-  const { state, dispatch } = useStore()
+  const { state } = useStore()
+  const [pasting, setPasting] = useState(false)
+  const [activeId, setActiveId] = useState(state.courses[0]?.id)
+  const active = state.courses.find((c) => c.id === activeId) ?? state.courses[0]
+
+  // One summary per course, shared by the strip and the details panel
+  const summaries = useMemo(() => {
+    const out = {}
+    for (const c of state.courses) {
+      const { unknowns, pct } = courseUnknowns(c, state.assessments)
+      const next = state.assessments
+        .filter((a) => a.courseId === c.id && a.score == null && !a.undated && daysBetween(TODAY, parseISO(a.date)) >= 0)
+        .sort((a, b) => a.date.localeCompare(b.date))[0]
+      out[c.id] = { ...courseStatus(c, state.assessments), unknowns, knownPct: pct, next }
+    }
+    return out
+  }, [state.courses, state.assessments])
 
   return (
     <>
-      <PageHeader title="Courses" sub="Everything from your syllabi, in one place.">
-        <Link className="btn primary" to="/syllabus">
-          <Upload size={16} /> Upload syllabus
-        </Link>
+      <PageHeader title="Courses" sub="Select a course to see its details.">
+        <div className="head-actions">
+          <button className="btn ghost" onClick={() => setPasting(true)}>
+            <Megaphone size={16} /> Paste an update
+          </button>
+          <Link className="btn primary" to="/syllabus">
+            <Upload size={16} /> Upload syllabus
+          </Link>
+        </div>
       </PageHeader>
 
-      <div className="course-grid">
-        {state.courses.map((c) => {
-          const g = courseGrade(c, state.assessments)
-          const next = state.assessments
-            .filter((a) => a.courseId === c.id && a.score == null && daysBetween(TODAY, parseISO(a.date)) >= 0)
-            .sort((a, b) => a.date.localeCompare(b.date))[0]
-          const at = c.attendance
-          return (
-            <article key={c.id} className="card course" style={{ '--c': c.color }}>
-              <header>
-                <div>
-                  <span className="code">{c.code}</span>
-                  <h3>{c.name}</h3>
-                </div>
-                <div className="grade-big">
-                  <strong>{g.current == null ? '—' : `${g.current.toFixed(1)}%`}</strong>
-                  <span>{letter(g.current)}</span>
-                </div>
-              </header>
+      {state.courses.length ? (
+        <>
+          <CourseStrip courses={state.courses} summaries={summaries} active={active.id} onSelect={setActiveId} />
+          <CourseDetails course={active} summary={summaries[active.id]} assessments={state.assessments} />
+        </>
+      ) : (
+        <div className="card empty">
+          <p>No courses yet.</p>
+          <Link className="btn primary" to="/syllabus">
+            <Upload size={16} /> Upload your first syllabus
+          </Link>
+        </div>
+      )}
 
-              <ul className="meta">
-                <li><Mail size={14} />{c.instructor} · {c.email}</li>
-                <li><Clock size={14} />{c.schedule}</li>
-                <li><MapPin size={14} />Office hours: {c.officeHours}</li>
-              </ul>
-
-              <div className="weights-bar">
-                {c.categories.map((k) => (
-                  <span key={k.id} style={{ flex: k.weight }} title={`${k.name} ${k.weight}%`}>
-                    {k.name} <b>{k.weight}%</b>
-                  </span>
-                ))}
-              </div>
-
-              <div className="attendance">
-                <div>
-                  <strong>Attendance</strong>
-                  <p className="muted">{at.policy}</p>
-                </div>
-                <div className="stepper">
-                  <button className="icon-btn boxed" onClick={() => dispatch({ type: 'updateCourse', id: c.id, patch: { attendance: { ...at, absences: Math.max(0, at.absences - 1) } } })} aria-label="Remove absence">
-                    <Minus size={14} />
-                  </button>
-                  <span className={at.absences >= at.maxAbsences ? 'warn' : ''}>
-                    {at.absences}/{at.maxAbsences}
-                  </span>
-                  <button className="icon-btn boxed" onClick={() => dispatch({ type: 'updateCourse', id: c.id, patch: { attendance: { ...at, absences: at.absences + 1 } } })} aria-label="Add absence">
-                    <Plus size={14} />
-                  </button>
-                </div>
-              </div>
-
-              <footer>
-                {next ? (
-                  <span className="next">
-                    <TypeIcon type={next.type} /> Next: <b>{next.title}</b> · {fmtShort(parseISO(next.date))} ({relDays(daysBetween(TODAY, parseISO(next.date)))})
-                  </span>
-                ) : (
-                  <span className="muted">No upcoming deadlines</span>
-                )}
-                <button className="icon-btn tiny" title="Remove course" onClick={() => confirm(`Remove ${c.code}?`) && dispatch({ type: 'removeCourse', id: c.id })}>
-                  <Trash2 size={14} />
-                </button>
-              </footer>
-            </article>
-          )
-        })}
-      </div>
       <Snow>SQL + Tables · COURSES, GRADE_CATEGORIES, ASSESSMENTS</Snow>
-
+      {pasting && <PasteUpdateModal onClose={() => setPasting(false)} />}
     </>
   )
 }

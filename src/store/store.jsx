@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useReducer } from 'react'
 import { seed, seedSyllabi } from '@/store/seed'
 
-const KEY = 'semesteros:v1'
+const KEY = 'semesteros:v3' // bump when the data shape changes
 const initial = () => ({ ...structuredClone(seed), syllabi: { ...seedSyllabi } })
 
 function load() {
@@ -22,6 +22,30 @@ function reducer(state, action) {
       return { ...state, tasks: state.tasks.filter((t) => t.id !== action.id) }
     case 'setScore':
       return { ...state, assessments: state.assessments.map((a) => (a.id === action.id ? { ...a, score: action.score } : a)) }
+    case 'confirmDate':
+      return {
+        ...state,
+        assessments: state.assessments.map((a) => (a.id === action.id ? { ...a, date: action.date, estimated: false, windowEnd: undefined } : a)),
+      }
+    case 'resolveNote':
+      return {
+        ...state,
+        courses: state.courses.map((c) =>
+          c.id === action.courseId ? { ...c, notes: (c.notes ?? []).map((n) => (n.id === action.noteId ? { ...n, resolved: true } : n)) } : c,
+        ),
+      }
+    // Pasted updates: add new items, move/confirm existing ones, drop cancelled ones
+    case 'applyUpdate':
+      return {
+        ...state,
+        assessments: [
+          ...state.assessments
+            .filter((a) => !action.remove.includes(a.id))
+            .map((a) => (action.dates[a.id] ? { ...a, date: action.dates[a.id], estimated: false, windowEnd: undefined, source: action.source } : a)),
+          ...action.add,
+        ],
+        events: [...state.events, ...action.events],
+      }
     case 'updateCourse':
       return { ...state, courses: state.courses.map((c) => (c.id === action.id ? { ...c, ...action.patch } : c)) }
     case 'addCourse':
@@ -30,6 +54,11 @@ function reducer(state, action) {
         courses: [...state.courses, action.course],
         assessments: [...state.assessments, ...action.assessments],
         syllabi: { ...state.syllabi, [action.course.id]: action.syllabus },
+        // Term dates repeat across syllabi, so de-dupe: one "closed" label per day, otherwise date + title
+        events: [
+          ...state.events,
+          ...(action.events ?? []).filter((e) => !state.events.some((x) => x.date === e.date && (x.title === e.title || (x.kind === 'closed' && e.kind === 'closed')))),
+        ],
       }
     case 'removeCourse':
       return {

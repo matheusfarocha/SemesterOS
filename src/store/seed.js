@@ -2,7 +2,16 @@
 // (COURSES, GRADE_CATEGORIES, ASSESSMENTS, TASKS, SYLLABUS_CHUNKS).
 
 export const seed = {
-  user: { name: 'Matheus', weeklyStudyHours: 30 },
+  user: { name: 'Matheus' },
+
+  // Non-graded calendar events: holidays, term deadlines. kind: closed | deadline | term | quirk
+  events: [
+    { id: 'e1', date: '2026-11-06', title: 'Last day to withdraw (W)', kind: 'deadline' },
+    { id: 'e2', date: '2026-11-25', title: 'No classes', kind: 'closed' },
+    { id: 'e3', date: '2026-11-26', title: 'College closed', kind: 'closed' },
+    { id: 'e4', date: '2026-11-27', title: 'College closed', kind: 'closed' },
+    { id: 'e5', date: '2026-12-15', title: 'Finals begin', kind: 'term' },
+  ],
 
   courses: [
     {
@@ -19,6 +28,13 @@ export const seed = {
       target: 90,
       attendance: { policy: 'More than 4 unexcused absences lowers the final grade by 2% per extra absence.', maxAbsences: 4, penalty: 2, absences: 2 },
       latePolicy: 'Problem sets accepted up to 48h late at -10% per day. Exams cannot be made up without documentation.',
+      aiPolicy: 'AI tools may be used to check your understanding, but all submitted work must be your own.',
+      rules: [
+        'Problem sets accepted up to 48h late at -10% per day.',
+        'Exams cannot be made up without documentation.',
+        'Regrade requests must be submitted within one week of grades being returned.',
+        'Calculators are not permitted on exams.',
+      ],
       categories: [
         { id: 'calc-ps', name: 'Problem Sets', weight: 25 },
         { id: 'calc-mid', name: 'Midterms', weight: 40 },
@@ -39,6 +55,12 @@ export const seed = {
       target: 85,
       attendance: { policy: 'Attendance is taken via clicker. You may miss 3 classes; each additional absence is -1% of the final grade.', maxAbsences: 3, penalty: 1, absences: 3 },
       latePolicy: 'Quizzes close at the deadline. No late submissions.',
+      rules: [
+        'Quizzes close at 11:59pm. No late submissions.',
+        'Each absence after 3 is -1% of the final grade (clicker attendance).',
+        'Extra credit: up to 2 SONA research studies, +1% each.',
+      ],
+      notes: [{ id: 'psy-n1', text: 'Participation (10%): graded on clicker attendance only, or also in-class questions?', resolved: false }],
       categories: [
         { id: 'psy-q', name: 'Chapter Quizzes', weight: 30 },
         { id: 'psy-p', name: 'Participation', weight: 10 },
@@ -59,6 +81,11 @@ export const seed = {
       target: 88,
       attendance: { policy: 'Attendance is required at all studio critiques. Missing a critique without notice is -5% on the related project.', maxAbsences: 2, penalty: 3, absences: 0 },
       latePolicy: 'Late projects lose one letter grade per day.',
+      rules: [
+        'Late projects lose one letter grade per day.',
+        'Missing a studio critique without notice is -5% on the related project.',
+        'Final project proposal had to be approved by Nov 13.',
+      ],
       categories: [
         { id: 'arch-r', name: 'Reading Responses', weight: 20 },
         { id: 'arch-e', name: 'Exams', weight: 40 },
@@ -79,6 +106,12 @@ export const seed = {
       target: 90,
       attendance: { policy: 'Workshops count toward participation. More than 3 absences = participation capped at 50%.', maxAbsences: 3, penalty: 2, absences: 1 },
       latePolicy: 'One free 72-hour extension per semester. Otherwise -5% per day.',
+      aiPolicy: 'Generative AI may be used for brainstorming only. Disclose any use in your reflection letter.',
+      rules: [
+        'One free 72-hour extension per semester. Otherwise -5% per day.',
+        'More than 3 absences caps participation at 50%.',
+        'Essay 2 needs 5+ scholarly sources in MLA format.',
+      ],
       categories: [
         { id: 'engl-es', name: 'Essays', weight: 60 },
         { id: 'engl-w', name: 'Workshops', weight: 15 },
@@ -107,7 +140,7 @@ export const seed = {
     { id: 'b5', courseId: 'psy', categoryId: 'psy-p', title: 'Participation', type: 'assignment', date: '2026-12-08', points: 100, score: null },
     { id: 'b6', courseId: 'psy', categoryId: 'psy-q', title: 'PSY Ch. 8', type: 'quiz', date: '2026-11-21', points: 20, score: null },
     { id: 'b7', courseId: 'psy', categoryId: 'psy-e', title: 'PSY Exam 2', type: 'exam', date: '2026-11-19', points: 100, score: null },
-    { id: 'b8', courseId: 'psy', categoryId: 'psy-e', title: 'PSY Final', type: 'exam', date: '2026-12-10', points: 100, score: null },
+    { id: 'b8', courseId: 'psy', categoryId: 'psy-e', title: 'PSY Final', type: 'exam', date: '2026-12-10', points: 100, score: null, estimated: true, source: 'Syllabus says "Week 15"' },
 
     // ---- Architecture
     { id: 'c1', courseId: 'arch', categoryId: 'arch-r', title: 'Reading Resp. 3', type: 'assignment', date: '2026-10-12', points: 10, score: 9 },

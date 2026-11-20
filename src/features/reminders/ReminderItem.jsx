@@ -1,6 +1,6 @@
-import { Clock, FileText, GraduationCap, AlertTriangle, TrendingDown } from 'lucide-react'
+import { Clock, FileText, GraduationCap, AlertTriangle, TrendingDown, CalendarClock } from 'lucide-react'
 
-const KIND_ICON = { conflict: AlertTriangle, risk: TrendingDown }
+const KIND_ICON = { conflict: AlertTriangle, risk: TrendingDown, confirm: CalendarClock }
 
 export default function ReminderItem({ r }) {
   const Icon = r.kind === 'deadline' ? (r.type === 'exam' ? Clock : r.type === 'project' ? GraduationCap : FileText) : KIND_ICON[r.kind]

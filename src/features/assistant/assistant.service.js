@@ -3,8 +3,9 @@
 // -> CORTEX.COMPLETE for the answer. Here: intent routing over the same data + keyword
 // retrieval over syllabus text, so answers are grounded in what the user actually uploaded.
 
-import { TODAY, parseISO, daysBetween, fmtShort, relDays } from '@/shared/lib/dates'
+import { TODAY, parseISO, daysBetween, fmtShort, relDays, addDays } from '@/shared/lib/dates'
 import { courseGrade, requiredScore, letter, semesterGPA, LETTER_TARGETS } from '@/features/grades/grades.service'
+import { gradeImpact, prepDays } from '@/features/workload/workload.service'
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 const STOP = new Set('the a an is are what when how do does i my me of for to in on and or it this that with about can will be at by'.split(' '))
@@ -54,6 +55,30 @@ export async function askAssistant(question, { courses, assessments }, syllabi) 
   const mentioned = matchCourses(q, courses)
   const scope = mentioned.length ? mentioned : courses
   const src = (c, what) => `${c.code} · ${what}`
+  const aiLine = (c) => (c.aiPolicy ? `**${c.short}** — ${c.aiPolicy}` : `**${c.short}** — No AI policy in the syllabus. Ask ${c.instructor} before using AI tools.`)
+
+  // Academic integrity: help plan graded work, never produce it
+  if (/\b(write|do|solve|finish|complete|code|answer)\b.{0,30}\b(my|the|this)\b.{0,20}\b(homework|hw|assignment|essay|pset|problem set|project|lab|quiz|exam|paper)/.test(q)) {
+    const wantType = /exam|test|midterm|final/.test(q) ? 'exam' : /quiz/.test(q) ? 'quiz' : /project/.test(q) ? 'project' : 'assignment'
+    const next = assessments
+      .filter((a) => a.score == null && !a.undated && a.type === wantType && scope.some((c) => c.id === a.courseId) && daysBetween(TODAY, parseISO(a.date)) >= 0)
+      .sort((a, b) => a.date.localeCompare(b.date))[0]
+    const c = next && courses.find((x) => x.id === next.courseId)
+    const lines = ["I can't do graded work for you. That would put your academic integrity at risk."]
+    const strict = scope.filter((x) => x.aiPolicy)
+    if (strict.length) lines.push(...strict.map(aiLine))
+    if (next) {
+      const start = addDays(parseISO(next.date), -(prepDays(next) - 1))
+      lines.push(
+        `What I can do: **${next.title}** is due ${fmtShort(parseISO(next.date))}${next.estimated ? ' (estimated)' : ''} and is worth **${gradeImpact(next, c, assessments).toFixed(1)}%** of your ${c.short} grade. Start by ${fmtShort(start)}; ${c.instructor}'s office hours are ${c.officeHours}.`,
+      )
+    }
+    return { text: lines.join('\n'), sources: [...strict.map((x) => src(x, 'AI policy')), ...(next ? ['Calendar · ASSESSMENTS'] : [])] }
+  }
+
+  if (/\b(ai|llm|llms|chatgpt|gpt|claude|copilot|generative)\b/.test(q)) {
+    return { text: scope.map(aiLine).join('\n'), sources: scope.filter((c) => c.aiPolicy).map((c) => src(c, 'AI policy')) }
+  }
 
   // Required score ("what do I need on the final to get an A in calc")
   if (/\bneed\b|required|to get an?\b|to keep an?\b|to end with/.test(q)) {
@@ -106,7 +131,7 @@ export async function askAssistant(question, { courses, assessments }, syllabi) 
     const horizon = /this week|busy/.test(q) ? 7 : 30
     const typeFilter = /project/.test(q) ? ['project'] : /exam|test|midterm|final/.test(q) ? ['exam'] : /quiz/.test(q) ? ['quiz'] : null
     const items = assessments
-      .filter((a) => a.score == null && scope.some((c) => c.id === a.courseId))
+      .filter((a) => a.score == null && !a.undated && scope.some((c) => c.id === a.courseId))
       .filter((a) => !typeFilter || typeFilter.includes(a.type))
       .map((a) => ({ ...a, days: daysBetween(TODAY, parseISO(a.date)) }))
       .filter((a) => a.days >= 0 && a.days <= horizon)
@@ -114,7 +139,12 @@ export async function askAssistant(question, { courses, assessments }, syllabi) 
       .slice(0, 6)
     if (!items.length) return { text: `Nothing coming up in the next ${horizon} days${mentioned.length ? ` for ${mentioned.map((c) => c.short).join(', ')}` : ''}.`, sources: [] }
     return {
-      text: items.map((a) => `**${a.title}** — ${fmtShort(parseISO(a.date))} (${relDays(a.days)})`).join('\n'),
+      text: items
+        .map((a) => {
+          const when = a.windowEnd ? `sometime ${fmtShort(parseISO(a.date))}–${fmtShort(parseISO(a.windowEnd))}` : `${fmtShort(parseISO(a.date))} (${relDays(a.days)})`
+          return `**${a.title}** — ${when}${a.estimated ? ' · estimated, confirm on your course site' : ''}`
+        })
+        .join('\n'),
       sources: ['Calendar · ASSESSMENTS'],
     }
   }
@@ -136,4 +166,6 @@ export const SUGGESTIONS = [
   'How many classes can I miss in PSY?',
   'How am I doing overall?',
   'What does the Calc midterm cover?',
+  'Can I use ChatGPT on my essay?',
+  'Can you write my Calc problem set?',
 ]
